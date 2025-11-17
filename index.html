@@ -134,6 +134,10 @@
       margin-top: 0.3rem;
     }
 
+    .placeholder-textarea {
+      color: #888;
+    }
+
     @media (min-width: 700px) {
       .layout-two {
         display: flex;
@@ -165,12 +169,6 @@
           Enter cumulative lap times, one per line:
         </label>
         <textarea id="lapTimes"></textarea>
-        <div class="small-text">
-          Example (one per line):<br>
-          0:48<br>
-          1:35<br>
-          2:50
-        </div>
         <div class="small-text">
           • Each time the subject completes a 50&nbsp;m lap and crosses the start line. <br>
           • Format: <code>mm:ss</code> (e.g. <code>0:48</code>, <code>1:35.2</code>) or seconds (e.g. <code>48</code>, <code>95.5</code>). <br>
@@ -348,6 +346,36 @@
         document.getElementById("dir_" + m).value = "out";
       }
       clearResults();
+      initLapExample(); // restore fake placeholder
+    }
+
+    // --- Fake placeholder system for Lap Times textarea ---
+    var lapExampleText = "e.g.\n0:48\n1:35\n2:50";
+
+    function initLapExample() {
+      var ta = document.getElementById("lapTimes");
+      if (!ta) return;
+
+      // If empty, show example
+      if (!ta.value) {
+        ta.value = lapExampleText;
+        ta.classList.add("placeholder-textarea");
+      }
+
+      ta.addEventListener("focus", function () {
+        if (ta.value === lapExampleText) {
+          ta.value = "";
+          ta.classList.remove("placeholder-textarea");
+        }
+      });
+
+      ta.addEventListener("blur", function () {
+        var trimmed = ta.value.replace(/^\s+|\s+$/g, "");
+        if (!trimmed) {
+          ta.value = lapExampleText;
+          ta.classList.add("placeholder-textarea");
+        }
+      });
     }
 
     function calculate() {
@@ -358,10 +386,18 @@
       lapErrorDiv.textContent = "";
       minuteErrorDiv.textContent = "";
 
-      // 1) Parse lap times
-      var lapText = document.getElementById("lapTimes").value.replace(/^\s+|\s+$/g, "");
+      var lapTa = document.getElementById("lapTimes");
+      var rawLapText = lapTa.value;
       var lapTimes = [];
 
+      // Treat example text as "empty"
+      if (rawLapText === lapExampleText) {
+        rawLapText = "";
+      }
+
+      var lapText = rawLapText.replace(/^\s+|\s+$/g, "");
+
+      // 1) Parse lap times
       if (lapText.length > 0) {
         var lines = lapText.split(/\r?\n/);
         for (var i = 0; i < lines.length; i++) {
@@ -429,6 +465,11 @@
         var offset = positionToOffsetWithinLap(info.posM, info.dir);
         var totalDistance = distFullLaps + offset;
 
+        // Enforce non-decreasing total distance (no backwards walking)
+        if (totalDistance < prevTotalDistance) {
+          totalDistance = prevTotalDistance;
+        }
+
         var distanceThisMinute = totalDistance - prevTotalDistance;
         var lapsThisMinute = distanceThisMinute / LAP_LENGTH_M;
 
@@ -460,9 +501,7 @@
         padRight("m this min", 13) +
         padRight("laps this min", 15)
       );
-      lines.push("".replace(/./g, "").padEnd ? "-".repeat(45) : "---------------------------------------------");
-      // simple fixed separator
-      lines[lines.length - 1] = "---------------------------------------------".substring(0,45);
+      lines.push("---------------------------------------------");
 
       for (var r = 0; r < results.length; r++) {
         var row = results[r];
@@ -485,6 +524,9 @@
     document.getElementById("calcButton").addEventListener("click", calculate);
     document.getElementById("clearResultsButton").addEventListener("click", clearResults);
     document.getElementById("clearAllButton").addEventListener("click", clearAll);
+
+    // Initialize fake placeholder once the page/script loads
+    initLapExample();
   </script>
 </body>
 </html>
