@@ -1,0 +1,484 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>6-Minute Walk Test Calculator</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <style>
+    body {
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      margin: 0;
+      padding: 1rem;
+      background-color: #f5f5f5;
+      color: #222;
+    }
+
+    h1 {
+      font-size: 1.4rem;
+      margin-bottom: 0.3rem;
+      text-align: center;
+    }
+
+    h2 {
+      font-size: 1.1rem;
+      margin-top: 1.2rem;
+      margin-bottom: 0.4rem;
+    }
+
+    .container {
+      max-width: 900px;
+      margin: 0 auto;
+    }
+
+    .card {
+      background-color: #fff;
+      border-radius: 0.6rem;
+      padding: 0.8rem 1rem;
+      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
+      margin-bottom: 1rem;
+    }
+
+    label {
+      display: block;
+      font-size: 0.95rem;
+      margin-bottom: 0.2rem;
+    }
+
+    textarea, input, select {
+      width: 100%;
+      font-size: 1rem;
+      padding: 0.5rem;
+      border-radius: 0.4rem;
+      border: 1px solid #ccc;
+      box-sizing: border-box;
+    }
+
+    textarea {
+      min-height: 120px;
+      resize: vertical;
+    }
+
+    .small-text {
+      font-size: 0.85rem;
+      color: #555;
+      margin-top: 0.2rem;
+    }
+
+    .minute-grid {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 0.5rem;
+    }
+
+    .minute-grid th,
+    .minute-grid td {
+      border: 1px solid #ddd;
+      padding: 0.45rem;
+      text-align: center;
+      font-size: 0.95rem;
+    }
+
+    .minute-grid input,
+    .minute-grid select {
+      width: 100%;
+      font-size: 1rem;
+    }
+
+    .button-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.6rem;
+      margin-top: 0.8rem;
+    }
+
+    button {
+      font-size: 1.0rem;
+      padding: 0.6rem 1.2rem;
+      border-radius: 0.6rem;
+      border: none;
+      background-color: #1976d2;
+      color: white;
+      cursor: pointer;
+      flex: 0 0 auto;
+      min-width: 120px;
+      touch-action: manipulation;
+    }
+
+    button.secondary {
+      background-color: #9e9e9e;
+    }
+
+    button:active {
+      transform: scale(0.98);
+    }
+
+    button:disabled {
+      background-color: #bbb;
+      cursor: default;
+      transform: none;
+    }
+
+    pre {
+      background-color: #fafafa;
+      border-radius: 0.5rem;
+      padding: 0.7rem;
+      font-family: "SF Mono", Menlo, Consolas, monospace;
+      overflow-x: auto;
+      font-size: 0.9rem;
+      border: 1px solid #e0e0e0;
+    }
+
+    .error {
+      color: #b00020;
+      font-size: 0.9rem;
+      margin-top: 0.3rem;
+    }
+
+    @media (min-width: 700px) {
+      .layout-two {
+        display: flex;
+        gap: 1rem;
+      }
+      .layout-two > .card {
+        flex: 1 1 0;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>6-Minute Walk Test Calculator</h1>
+
+    <div class="card">
+      <p class="small-text">
+        This tool uses cumulative lap times (each time a 50&nbsp;m lap is completed)
+        plus sticky-note positions at each minute (0–25&nbsp;m, out/back) to calculate:
+        <strong>distance walked in each minute</strong> and <strong>totals</strong>.
+      </p>
+    </div>
+
+    <div class="layout-two">
+      <!-- Lap Times -->
+      <div class="card">
+        <h2>Lap Times (Cumulative)</h2>
+        <label for="lapTimes">
+          Enter cumulative lap times, one per line:
+        </label>
+        <textarea id="lapTimes" placeholder="e.g.&#10;0:48&#10;1:35&#10;2:50"></textarea>
+        <div class="small-text">
+          • Each time the subject completes a 50&nbsp;m lap and crosses the start line. <br>
+          • Format: <code>mm:ss</code> (e.g. <code>0:48</code>, <code>1:35.2</code>) or seconds (e.g. <code>48</code>, <code>95.5</code>). <br>
+          • If no full laps are completed, you can leave this blank.
+        </div>
+        <div id="lapError" class="error"></div>
+      </div>
+
+      <!-- Minute Marks -->
+      <div class="card">
+        <h2>Sticky-Note Positions (Each Minute)</h2>
+        <div class="small-text">
+          For each minute 1–6, enter the floor marking at that minute (0–25&nbsp;m) and whether the subject was walking
+          <strong>out</strong> (0→25) or <strong>back</strong> (25→0).
+        </div>
+        <table class="minute-grid">
+          <thead>
+            <tr>
+              <th>Minute</th>
+              <th>Position (m)</th>
+              <th>Direction</th>
+            </tr>
+          </thead>
+          <tbody id="minuteTableBody">
+            <tr>
+              <td>1</td>
+              <td><input type="number" id="pos_1" min="0" max="25" step="0.1" /></td>
+              <td>
+                <select id="dir_1">
+                  <option value="out">out</option>
+                  <option value="back">back</option>
+                </select>
+              </td>
+            </tr>
+            <tr>
+              <td>2</td>
+              <td><input type="number" id="pos_2" min="0" max="25" step="0.1" /></td>
+              <td>
+                <select id="dir_2">
+                  <option value="out">out</option>
+                  <option value="back">back</option>
+                </select>
+              </td>
+            </tr>
+            <tr>
+              <td>3</td>
+              <td><input type="number" id="pos_3" min="0" max="25" step="0.1" /></td>
+              <td>
+                <select id="dir_3">
+                  <option value="out">out</option>
+                  <option value="back">back</option>
+                </select>
+              </td>
+            </tr>
+            <tr>
+              <td>4</td>
+              <td><input type="number" id="pos_4" min="0" max="25" step="0.1" /></td>
+              <td>
+                <select id="dir_4">
+                  <option value="out">out</option>
+                  <option value="back">back</option>
+                </select>
+              </td>
+            </tr>
+            <tr>
+              <td>5</td>
+              <td><input type="number" id="pos_5" min="0" max="25" step="0.1" /></td>
+              <td>
+                <select id="dir_5">
+                  <option value="out">out</option>
+                  <option value="back">back</option>
+                </select>
+              </td>
+            </tr>
+            <tr>
+              <td>6</td>
+              <td><input type="number" id="pos_6" min="0" max="25" step="0.1" /></td>
+              <td>
+                <select id="dir_6">
+                  <option value="out">out</option>
+                  <option value="back">back</option>
+                </select>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+        <div id="minuteError" class="error"></div>
+      </div>
+    </div>
+
+    <!-- Buttons -->
+    <div class="card">
+      <div class="button-row">
+        <button id="calcButton">Calculate</button>
+        <button id="clearAllButton" class="secondary">Clear All</button>
+        <button id="clearResultsButton" class="secondary">Clear Results</button>
+      </div>
+    </div>
+
+    <!-- Results -->
+    <div class="card">
+      <h2>Results</h2>
+      <pre id="resultsBox">Per-minute results will appear here.</pre>
+    </div>
+  </div>
+
+  <script>
+    var LAP_LENGTH_M = 50.0; // 25 m out + 25 m back
+
+    function parseTimeToSeconds(str) {
+      var s = str.replace(/^\s+|\s+$/g, "");
+      if (!s) {
+        throw new Error("Empty time string.");
+      }
+      if (s.indexOf(":") !== -1) {
+        var parts = s.split(":");
+        if (parts.length !== 2) {
+          throw new Error("Invalid mm:ss format: " + s);
+        }
+        var mins = parseInt(parts[0], 10);
+        var secs = parseFloat(parts[1]);
+        if (isNaN(mins) || isNaN(secs)) {
+          throw new Error("Invalid mm:ss format: " + s);
+        }
+        return mins * 60 + secs;
+      } else {
+        var v = parseFloat(s);
+        if (isNaN(v)) {
+          throw new Error("Invalid seconds value: " + s);
+        }
+        return v;
+      }
+    }
+
+    function getLapsCompletedByTime(lapTimes, tSeconds) {
+      var count = 0;
+      for (var i = 0; i < lapTimes.length; i++) {
+        if (lapTimes[i] <= tSeconds) {
+          count++;
+        }
+      }
+      return count;
+    }
+
+    function positionToOffsetWithinLap(posM, direction) {
+      var dir = direction.toLowerCase();
+      if (dir === "out") {
+        return posM; // 0..25
+      } else if (dir === "back") {
+        return LAP_LENGTH_M - posM; // 25..50
+      } else {
+        throw new Error("direction must be 'out' or 'back'");
+      }
+    }
+
+    function padRight(text, width) {
+      text = String(text);
+      while (text.length < width) {
+        text += " ";
+      }
+      return text;
+    }
+
+    function clearResults() {
+      document.getElementById("resultsBox").textContent =
+        "Per-minute results will appear here.";
+      document.getElementById("lapError").textContent = "";
+      document.getElementById("minuteError").textContent = "";
+    }
+
+    function clearAll() {
+      document.getElementById("lapTimes").value = "";
+      for (var m = 1; m <= 6; m++) {
+        document.getElementById("pos_" + m).value = "";
+        document.getElementById("dir_" + m).value = "out";
+      }
+      clearResults();
+    }
+
+    function calculate() {
+      var lapErrorDiv = document.getElementById("lapError");
+      var minuteErrorDiv = document.getElementById("minuteError");
+      var resultsBox = document.getElementById("resultsBox");
+
+      lapErrorDiv.textContent = "";
+      minuteErrorDiv.textContent = "";
+
+      // 1) Parse lap times
+      var lapText = document.getElementById("lapTimes").value.replace(/^\s+|\s+$/g, "");
+      var lapTimes = [];
+
+      if (lapText.length > 0) {
+        var lines = lapText.split(/\r?\n/);
+        for (var i = 0; i < lines.length; i++) {
+          var line = lines[i].replace(/^\s+|\s+$/g, "");
+          if (!line) continue;
+          try {
+            var t = parseTimeToSeconds(line);
+            lapTimes.push(t);
+          } catch (e) {
+            lapErrorDiv.textContent =
+              'Error parsing lap time: "' + line +
+              '". Use mm:ss (e.g. 0:48) or seconds (e.g. 48.0).';
+            resultsBox.textContent = "Error: could not parse lap times.";
+            return;
+          }
+        }
+        lapTimes.sort(function(a, b) { return a - b; });
+      }
+
+      // 2) Parse minute positions
+      var minuteInfo = [];
+      for (var m = 1; m <= 6; m++) {
+        var posInput = document.getElementById("pos_" + m);
+        var dirSelect = document.getElementById("dir_" + m);
+        var posStr = posInput.value.replace(/^\s+|\s+$/g, "");
+        var dirStr = dirSelect.value.replace(/^\s+|\s+$/g, "").toLowerCase();
+
+        if (!posStr) {
+          minuteErrorDiv.textContent =
+            "Please enter a position (0–25 m) for minute " + m + ".";
+          resultsBox.textContent = "Error: missing position for minute " + m + ".";
+          return;
+        }
+
+        var pos = parseFloat(posStr);
+        if (isNaN(pos) || pos < 0 || pos > 25) {
+          minuteErrorDiv.textContent =
+            "Position for minute " + m + " must be a number between 0 and 25.";
+          resultsBox.textContent = "Error: invalid position for minute " + m + ".";
+          return;
+        }
+
+        if (dirStr !== "out" && dirStr !== "back") {
+          minuteErrorDiv.textContent =
+            "Direction for minute " + m + " must be 'out' or 'back'.";
+          resultsBox.textContent = "Error: invalid direction for minute " + m + ".";
+          return;
+        }
+
+        minuteInfo.push({ minute: m, posM: pos, dir: dirStr });
+      }
+
+      // 3) Compute per-minute distances
+      var results = [];
+      var prevTotalDistance = 0.0;
+
+      for (var j = 0; j < minuteInfo.length; j++) {
+        var info = minuteInfo[j];
+        var minute = info.minute;
+        var tSec = minute * 60; // seconds at that minute
+
+        var lapsCompleted = getLapsCompletedByTime(lapTimes, tSec);
+        var distFullLaps = lapsCompleted * LAP_LENGTH_M;
+
+        var offset = positionToOffsetWithinLap(info.posM, info.dir);
+        var totalDistance = distFullLaps + offset;
+
+        var distanceThisMinute = totalDistance - prevTotalDistance;
+        var lapsThisMinute = distanceThisMinute / LAP_LENGTH_M;
+
+        results.push({
+          minute: minute,
+          timeS: tSec,
+          distanceThisMinuteM: distanceThisMinute,
+          lapsThisMinute: lapsThisMinute
+        });
+
+        prevTotalDistance = totalDistance;
+      }
+
+      // 4) Totals
+      var totalDistanceAll = 0.0;
+      for (var k = 0; k < results.length; k++) {
+        totalDistanceAll += results[k].distanceThisMinuteM;
+      }
+      var totalLapsAll = totalDistanceAll / LAP_LENGTH_M;
+
+      // 5) Format output
+      var lines = [];
+      lines.push("Per-Minute Distances");
+      lines.push("1 lap = 50 m (25 m out + 25 m back)");
+      lines.push("");
+      lines.push(
+        padRight("Min", 4) +
+        padRight("Time(s)", 9) +
+        padRight("m this min", 13) +
+        padRight("laps this min", 15)
+      );
+      lines.push("".replace(/./g, "").padEnd ? "-".repeat(45) : "---------------------------------------------");
+      // simple fixed separator
+      lines[lines.length - 1] = "---------------------------------------------".substring(0,45);
+
+      for (var r = 0; r < results.length; r++) {
+        var row = results[r];
+        lines.push(
+          padRight(row.minute, 4) +
+          padRight(row.timeS.toFixed(1), 9) +
+          padRight(row.distanceThisMinuteM.toFixed(2), 13) +
+          padRight(row.lapsThisMinute.toFixed(3), 15)
+        );
+      }
+
+      lines.push("");
+      lines.push("Totals (0–6 minutes):");
+      lines.push("  Total distance: " + totalDistanceAll.toFixed(2) + " m");
+      lines.push("  Total laps:     " + totalLapsAll.toFixed(3) + " laps");
+
+      resultsBox.textContent = lines.join("\n");
+    }
+
+    document.getElementById("calcButton").addEventListener("click", calculate);
+    document.getElementById("clearResultsButton").addEventListener("click", clearResults);
+    document.getElementById("clearAllButton").addEventListener("click", clearAll);
+  </script>
+</body>
+</html>
