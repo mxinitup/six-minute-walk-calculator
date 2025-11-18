@@ -138,6 +138,19 @@
       color: #888;
     }
 
+    .stopwatch-container {
+      margin-top: 0.8rem;
+      border-top: 1px solid #eee;
+      padding-top: 0.6rem;
+    }
+
+    .stopwatch-time {
+      font-size: 1.6rem;
+      text-align: center;
+      margin: 0.4rem 0 0.6rem;
+      font-variant-numeric: tabular-nums;
+    }
+
     @media (min-width: 700px) {
       .layout-two {
         display: flex;
@@ -175,6 +188,23 @@
           • If no full laps are completed, you can leave this blank.
         </div>
         <div id="lapError" class="error"></div>
+
+        <!-- Stopwatch helper -->
+        <div class="stopwatch-container">
+          <div class="small-text">
+            <strong>Stopwatch helper (optional):</strong> Tap <em>Start</em> at the beginning of the test,
+            then tap <em>Lap</em> each time a 50&nbsp;m lap is completed. Lap times will be added to the box above.
+          </div>
+          <div id="stopwatchTime" class="stopwatch-time">0:00.0</div>
+          <div class="button-row">
+            <button type="button" id="stopwatchStart">Start</button>
+            <button type="button" id="stopwatchLap" class="secondary">Lap</button>
+            <button type="button" id="stopwatchReset" class="secondary">Reset</button>
+          </div>
+          <div class="small-text">
+            Stopwatch automatically stops at 6:00. Use <em>Clear All</em> to clear lap times and sticky notes.
+          </div>
+        </div>
       </div>
 
       <!-- Minute Marks -->
@@ -277,6 +307,12 @@
 
   <script>
     var LAP_LENGTH_M = 50.0; // 25 m out + 25 m back
+    var SIX_MIN_MS = 6 * 60 * 1000;
+
+    // Stopwatch state
+    var stopwatchIntervalId = null;
+    var stopwatchStartTime = null;
+    var stopwatchRunning = false;
 
     function parseTimeToSeconds(str) {
       var s = str.replace(/^\s+|\s+$/g, "");
@@ -346,6 +382,7 @@
         document.getElementById("dir_" + m).value = "out";
       }
       clearResults();
+      resetStopwatch();
       initLapExample(); // restore fake placeholder
     }
 
@@ -376,6 +413,113 @@
           ta.classList.add("placeholder-textarea");
         }
       });
+    }
+
+    // --- Stopwatch helpers ---
+
+    function formatTimeMs(ms) {
+      if (ms < 0) ms = 0;
+      var totalSeconds = ms / 1000;
+      var mins = Math.floor(totalSeconds / 60);
+      var secsFloat = totalSeconds - mins * 60;
+      var secs = Math.floor(secsFloat);
+      var tenths = Math.floor((secsFloat - secs) * 10);
+      if (tenths < 0) tenths = 0;
+      var secsStr = (secs < 10 ? "0" : "") + secs;
+      return mins + ":" + secsStr + "." + tenths;
+    }
+
+    function updateStopwatchDisplay() {
+      if (!stopwatchRunning) return;
+      var now = new Date().getTime();
+      var elapsed = now - stopwatchStartTime;
+      if (elapsed >= SIX_MIN_MS) {
+        elapsed = SIX_MIN_MS;
+        document.getElementById("stopwatchTime").textContent = formatTimeMs(elapsed);
+        stopStopwatch(true);
+        return;
+      }
+      document.getElementById("stopwatchTime").textContent = formatTimeMs(elapsed);
+    }
+
+    function startStopwatch() {
+      if (stopwatchRunning) return;
+      stopwatchStartTime = new Date().getTime();
+      stopwatchRunning = true;
+
+      var startBtn = document.getElementById("stopwatchStart");
+      var lapBtn = document.getElementById("stopwatchLap");
+      var resetBtn = document.getElementById("stopwatchReset");
+
+      startBtn.disabled = true;
+      lapBtn.disabled = false;
+      resetBtn.disabled = false;
+
+      if (stopwatchIntervalId !== null) {
+        clearInterval(stopwatchIntervalId);
+      }
+      stopwatchIntervalId = setInterval(updateStopwatchDisplay, 100);
+    }
+
+    function stopStopwatch(locked) {
+      stopwatchRunning = false;
+      if (stopwatchIntervalId !== null) {
+        clearInterval(stopwatchIntervalId);
+        stopwatchIntervalId = null;
+      }
+      var startBtn = document.getElementById("stopwatchStart");
+      var lapBtn = document.getElementById("stopwatchLap");
+
+      if (locked) {
+        // After 6 minutes, lock out further starts/laps
+        startBtn.disabled = true;
+        lapBtn.disabled = true;
+      } else {
+        startBtn.disabled = false;
+        lapBtn.disabled = true;
+      }
+    }
+
+    function resetStopwatch() {
+      stopStopwatch(false);
+      stopwatchStartTime = null;
+      document.getElementById("stopwatchTime").textContent = "0:00.0";
+
+      var startBtn = document.getElementById("stopwatchStart");
+      var lapBtn = document.getElementById("stopwatchLap");
+      var resetBtn = document.getElementById("stopwatchReset");
+
+      startBtn.disabled = false;
+      lapBtn.disabled = true;
+      // Reset can stay enabled
+      resetBtn.disabled = false;
+    }
+
+    function lapStopwatch() {
+      if (!stopwatchRunning) return;
+      var now = new Date().getTime();
+      var elapsed = now - stopwatchStartTime;
+      if (elapsed > SIX_MIN_MS) {
+        elapsed = SIX_MIN_MS;
+      }
+
+      var lapString = formatTimeMs(elapsed);
+      var ta = document.getElementById("lapTimes");
+
+      // Clear placeholder if present
+      if (ta.value === lapExampleText) {
+        ta.value = "";
+        ta.classList.remove("placeholder-textarea");
+      }
+
+      var current = ta.value.replace(/\s+$/g, "");
+      if (!current) {
+        ta.value = lapString;
+      } else {
+        ta.value = current + "\n" + lapString;
+      }
+
+      ta.scrollTop = ta.scrollHeight;
     }
 
     function calculate() {
@@ -525,8 +669,14 @@
     document.getElementById("clearResultsButton").addEventListener("click", clearResults);
     document.getElementById("clearAllButton").addEventListener("click", clearAll);
 
-    // Initialize fake placeholder once the page/script loads
+    // Stopwatch button wiring
+    document.getElementById("stopwatchStart").addEventListener("click", startStopwatch);
+    document.getElementById("stopwatchLap").addEventListener("click", lapStopwatch);
+    document.getElementById("stopwatchReset").addEventListener("click", resetStopwatch);
+
+    // Initialize fake placeholder and stopwatch UI
     initLapExample();
+    resetStopwatch();
   </script>
 </body>
 </html>
