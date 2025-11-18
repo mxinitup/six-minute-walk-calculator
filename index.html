@@ -2,681 +2,208 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>6-Minute Walk Test Calculator</title>
+  <!-- This viewport tag was already in your split version and is required for tablet use -->
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <style>
-    body {
-      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-      margin: 0;
-      padding: 1rem;
-      background-color: #f5f5f5;
-      color: #222;
-    }
-
-    h1 {
-      font-size: 1.4rem;
-      margin-bottom: 0.3rem;
-      text-align: center;
-    }
-
-    h2 {
-      font-size: 1.1rem;
-      margin-top: 1.2rem;
-      margin-bottom: 0.4rem;
-    }
-
-    .container {
-      max-width: 900px;
-      margin: 0 auto;
-    }
-
-    .card {
-      background-color: #fff;
-      border-radius: 0.6rem;
-      padding: 0.8rem 1rem;
-      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
-      margin-bottom: 1rem;
-    }
-
-    label {
-      display: block;
-      font-size: 0.95rem;
-      margin-bottom: 0.2rem;
-    }
-
-    textarea, input, select {
-      width: 100%;
-      font-size: 1rem;
-      padding: 0.5rem;
-      border-radius: 0.4rem;
-      border: 1px solid #ccc;
-      box-sizing: border-box;
-    }
-
-    textarea {
-      min-height: 120px;
-      resize: vertical;
-    }
-
-    .small-text {
-      font-size: 0.85rem;
-      color: #555;
-      margin-top: 0.2rem;
-    }
-
-    .minute-grid {
-      width: 100%;
-      border-collapse: collapse;
-      margin-top: 0.5rem;
-    }
-
-    .minute-grid th,
-    .minute-grid td {
-      border: 1px solid #ddd;
-      padding: 0.45rem;
-      text-align: center;
-      font-size: 0.95rem;
-    }
-
-    .minute-grid input,
-    .minute-grid select {
-      width: 100%;
-      font-size: 1rem;
-    }
-
-    .button-row {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 0.6rem;
-      margin-top: 0.8rem;
-    }
-
-    button {
-      font-size: 1.0rem;
-      padding: 0.6rem 1.2rem;
-      border-radius: 0.6rem;
-      border: none;
-      background-color: #1976d2;
-      color: white;
-      cursor: pointer;
-      flex: 0 0 auto;
-      min-width: 120px;
-      touch-action: manipulation;
-    }
-
-    button.secondary {
-      background-color: #9e9e9e;
-    }
-
-    button:active {
-      transform: scale(0.98);
-    }
-
-    button:disabled {
-      background-color: #bbb;
-      cursor: default;
-      transform: none;
-    }
-
-    pre {
-      background-color: #fafafa;
-      border-radius: 0.5rem;
-      padding: 0.7rem;
-      font-family: "SF Mono", Menlo, Consolas, monospace;
-      overflow-x: auto;
-      font-size: 0.9rem;
-      border: 1px solid #e0e0e0;
-    }
-
-    .error {
-      color: #b00020;
-      font-size: 0.9rem;
-      margin-top: 0.3rem;
-    }
-
-    .placeholder-textarea {
-      color: #888;
-    }
-
-    .stopwatch-container {
-      margin-top: 0.8rem;
-      border-top: 1px solid #eee;
-      padding-top: 0.6rem;
-    }
-
-    .stopwatch-time {
-      font-size: 1.6rem;
-      text-align: center;
-      margin: 0.4rem 0 0.6rem;
-      font-variant-numeric: tabular-nums;
-    }
-
-    @media (min-width: 700px) {
-      .layout-two {
-        display: flex;
-        gap: 1rem;
-      }
-      .layout-two > .card {
-        flex: 1 1 0;
-      }
-    }
-  </style>
+  <title>6-Minute Walk Test Calculator + Stopwatch</title>
+  <!-- External stylesheet instead of inline styles from Original_index.html -->
+  <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
   <div class="container">
     <h1>6-Minute Walk Test Calculator</h1>
 
+    <!-- 
+      In Original_index.html there was a paragraph explaining how the tool works.
+      Keeping a short version here is useful for a new user and also shows how this build relates to the original.
+    -->
     <div class="card">
       <p class="small-text">
-        This tool uses cumulative lap times (each time a 50&nbsp;m lap is completed)
-        plus sticky-note positions at each minute (0–25&nbsp;m, out/back) to calculate:
-        <strong>distance walked in each minute</strong> and <strong>totals</strong>.
+        This tool uses cumulative lap times from a 50 m track plus sticky-note positions at each minute
+        to calculate distance walked in each minute and totals over 6 minutes.
+        The original page asked you to type lap times into a textarea.
+        This version uses a built-in stopwatch that records lap times directly.
       </p>
     </div>
 
+    <!-- 
+      Two column layout on larger screens:
+      - Original_index.html used layout-two for "Lap Times" and "Sticky-Note Positions".
+      - Here we keep the same idea but the left side is now the stopwatch and live lap table.
+      - Right side stays as the minute sticky-note entry.
+      On tablets this feels natural and uses the horizontal space better.
+    -->
     <div class="layout-two">
-      <!-- Lap Times -->
+      <!-- TIMER + LAP RECORDER CARD -->
       <div class="card">
-        <h2>Lap Times (Cumulative)</h2>
-        <label for="lapTimes">
-          Enter cumulative lap times, one per line:
-        </label>
-        <textarea id="lapTimes"></textarea>
-        <div class="small-text">
-          • Each time the subject completes a 50&nbsp;m lap and crosses the start line. <br>
-          • Format: <code>mm:ss</code> (e.g. <code>0:48</code>, <code>1:35.2</code>) or seconds (e.g. <code>48</code>, <code>95.5</code>). <br>
-          • If no full laps are completed, you can leave this blank.
-        </div>
-        <div id="lapError" class="error"></div>
+        <h2>Stopwatch and lap recorder</h2>
+        <!-- 
+          Original_index.html had a textarea for lap times.
+          The user had to type cumulative times manually.
+          This display replaces that workflow entirely with a real stopwatch.
+        -->
 
-        <!-- Stopwatch helper -->
-        <div class="stopwatch-container">
-          <div class="small-text">
-            <strong>Stopwatch helper (optional):</strong> Tap <em>Start</em> at the beginning of the test,
-            then tap <em>Lap</em> each time a 50&nbsp;m lap is completed. Lap times will be added to the box above.
-          </div>
-          <div id="stopwatchTime" class="stopwatch-time">0:00.0</div>
-          <div class="button-row">
-            <button type="button" id="stopwatchStart">Start</button>
-            <button type="button" id="stopwatchLap" class="secondary">Lap</button>
-            <button type="button" id="stopwatchReset" class="secondary">Reset</button>
-          </div>
-          <div class="small-text">
-            Stopwatch automatically stops at 6:00. Use <em>Clear All</em> to clear lap times and sticky notes.
-          </div>
+        <div class="timer-display" id="timerDisplay">00:00.0</div>
+
+        <div class="button-row">
+          <!-- 
+            toggleButton replaces a separate Start and Stop control.
+            One button is easier to hit on a tablet with one hand.
+          -->
+          <button id="toggleButton">Start</button>
+          <!-- Lap and Reset start disabled just like in your split version -->
+          <button id="lapButton" disabled>Lap</button>
+          <button id="resetButton" class="secondary" disabled>Reset</button>
         </div>
+
+        <!-- 
+          This table shows the cumulative lap times.
+          In the original page the user would type them into a textarea.
+          Now the stopwatch fills this table and the calculator reads from the internal lapTimes array.
+        -->
+        <div class="minute-grid-wrapper touch-safe">
+          <table class="minute-grid" id="lapTable">
+            <thead>
+              <tr>
+                <th>Lap #</th>
+                <th>Time (mm:ss.s)</th>
+              </tr>
+            </thead>
+            <tbody id="lapTableBody"></tbody>
+          </table>
+        </div>
+
+        <!-- 
+          This error block is new here, but the idea comes from the original lapError div.
+          It is used to warn if a lap is ignored because its time is not later than the previous one.
+        -->
+        <div id="lapError" class="error"></div>
       </div>
 
-      <!-- Minute Marks -->
+      <!-- STICKY NOTE POSITIONS CARD -->
       <div class="card">
-        <h2>Sticky-Note Positions (Each Minute)</h2>
+        <h2>Sticky-note positions (each minute)</h2>
+        <!-- 
+          This description is adapted from Original_index.html.
+          The logic behind the calculator is the same:
+          - One row per minute.
+          - Position is between 0 and 25 m.
+          - Direction is either "out" or "back".
+        -->
         <div class="small-text">
-          For each minute 1–6, enter the floor marking at that minute (0–25&nbsp;m) and whether the subject was walking
-          <strong>out</strong> (0→25) or <strong>back</strong> (25→0).
+          For each minute 1 to 6, enter the floor marking at that minute (0 to 25 m)
+          and whether the subject was walking out (0 to 25 m) or back (25 to 0 m).
         </div>
-        <table class="minute-grid">
-          <thead>
-            <tr>
-              <th>Minute</th>
-              <th>Position (m)</th>
-              <th>Direction</th>
-            </tr>
-          </thead>
-          <tbody id="minuteTableBody">
-            <tr>
-              <td>1</td>
-              <td><input type="number" id="pos_1" min="0" max="25" step="0.1" /></td>
-              <td>
-                <select id="dir_1">
-                  <option value="out">out</option>
-                  <option value="back">back</option>
-                </select>
-              </td>
-            </tr>
-            <tr>
-              <td>2</td>
-              <td><input type="number" id="pos_2" min="0" max="25" step="0.1" /></td>
-              <td>
-                <select id="dir_2">
-                  <option value="out">out</option>
-                  <option value="back">back</option>
-                </select>
-              </td>
-            </tr>
-            <tr>
-              <td>3</td>
-              <td><input type="number" id="pos_3" min="0" max="25" step="0.1" /></td>
-              <td>
-                <select id="dir_3">
-                  <option value="out">out</option>
-                  <option value="back">back</option>
-                </select>
-              </td>
-            </tr>
-            <tr>
-              <td>4</td>
-              <td><input type="number" id="pos_4" min="0" max="25" step="0.1" /></td>
-              <td>
-                <select id="dir_4">
-                  <option value="out">out</option>
-                  <option value="back">back</option>
-                </select>
-              </td>
-            </tr>
-            <tr>
-              <td>5</td>
-              <td><input type="number" id="pos_5" min="0" max="25" step="0.1" /></td>
-              <td>
-                <select id="dir_5">
-                  <option value="out">out</option>
-                  <option value="back">back</option>
-                </select>
-              </td>
-            </tr>
-            <tr>
-              <td>6</td>
-              <td><input type="number" id="pos_6" min="0" max="25" step="0.1" /></td>
-              <td>
-                <select id="dir_6">
-                  <option value="out">out</option>
-                  <option value="back">back</option>
-                </select>
-              </td>
-            </tr>
-          </tbody>
-        </table>
+
+        <div class="minute-grid-wrapper touch-safe">
+          <table class="minute-grid">
+            <thead>
+              <tr>
+                <th>Minute</th>
+                <th>Position (m)</th>
+                <th>Direction</th>
+              </tr>
+            </thead>
+            <tbody>
+              <!-- 
+                The structure matches Original_index.html, but wording is slightly updated.
+                Note the explicit value attributes on the select options, which the original already used.
+                Your split index had dropped the values which is fine in practice but less explicit.
+              -->
+              <tr>
+                <td>1</td>
+                <td><input id="pos_1" type="number" min="0" max="25" step="0.1" /></td>
+                <td>
+                  <select id="dir_1">
+                    <option value="out">out</option>
+                    <option value="back">back</option>
+                  </select>
+                </td>
+              </tr>
+              <tr>
+                <td>2</td>
+                <td><input id="pos_2" type="number" min="0" max="25" step="0.1" /></td>
+                <td>
+                  <select id="dir_2">
+                    <option value="out">out</option>
+                    <option value="back">back</option>
+                  </select>
+                </td>
+              </tr>
+              <tr>
+                <td>3</td>
+                <td><input id="pos_3" type="number" min="0" max="25" step="0.1" /></td>
+                <td>
+                  <select id="dir_3">
+                    <option value="out">out</option>
+                    <option value="back">back</option>
+                  </select>
+                </td>
+              </tr>
+              <tr>
+                <td>4</td>
+                <td><input id="pos_4" type="number" min="0" max="25" step="0.1" /></td>
+                <td>
+                  <select id="dir_4">
+                    <option value="out">out</option>
+                    <option value="back">back</option>
+                  </select>
+                </td>
+              </tr>
+              <tr>
+                <td>5</td>
+                <td><input id="pos_5" type="number" min="0" max="25" step="0.1" /></td>
+                <td>
+                  <select id="dir_5">
+                    <option value="out">out</option>
+                    <option value="back">back</option>
+                  </select>
+                </td>
+              </tr>
+              <tr>
+                <td>6</td>
+                <td><input id="pos_6" type="number" min="0" max="25" step="0.1" /></td>
+                <td>
+                  <select id="dir_6">
+                    <option value="out">out</option>
+                    <option value="back">back</option>
+                  </select>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <!-- 
+          Same purpose as in Original_index.html.
+          We reuse it in the new calculate() to show validation errors for positions and directions.
+        -->
         <div id="minuteError" class="error"></div>
       </div>
     </div>
 
-    <!-- Buttons -->
+    <!-- CALC BUTTONS CARD -->
     <div class="card">
       <div class="button-row">
+        <!-- Same ids as Original_index.html so the calculator logic stays recognizable -->
         <button id="calcButton">Calculate</button>
-        <button id="clearAllButton" class="secondary">Clear All</button>
-        <button id="clearResultsButton" class="secondary">Clear Results</button>
+        <!-- Clear All now resets both stopwatch and minute inputs, as well as results -->
+        <button id="clearAllButton" class="secondary">Clear all</button>
+        <!-- Clear Results uses the same behavior as the original but leaves all inputs intact -->
+        <button id="clearResultsButton" class="secondary">Clear results</button>
       </div>
     </div>
 
-    <!-- Results -->
+    <!-- RESULTS CARD -->
     <div class="card">
       <h2>Results</h2>
+      <!-- 
+        Same idea as the original pre block.
+        The calculator writes the formatted per minute and totals output here.
+      -->
       <pre id="resultsBox">Per-minute results will appear here.</pre>
     </div>
   </div>
-
-  <script>
-    var LAP_LENGTH_M = 50.0; // 25 m out + 25 m back
-    var SIX_MIN_MS = 6 * 60 * 1000;
-
-    // Stopwatch state
-    var stopwatchIntervalId = null;
-    var stopwatchStartTime = null;
-    var stopwatchRunning = false;
-
-    function parseTimeToSeconds(str) {
-      var s = str.replace(/^\s+|\s+$/g, "");
-      if (!s) {
-        throw new Error("Empty time string.");
-      }
-      if (s.indexOf(":") !== -1) {
-        var parts = s.split(":");
-        if (parts.length !== 2) {
-          throw new Error("Invalid mm:ss format: " + s);
-        }
-        var mins = parseInt(parts[0], 10);
-        var secs = parseFloat(parts[1]);
-        if (isNaN(mins) || isNaN(secs)) {
-          throw new Error("Invalid mm:ss format: " + s);
-        }
-        return mins * 60 + secs;
-      } else {
-        var v = parseFloat(s);
-        if (isNaN(v)) {
-          throw new Error("Invalid seconds value: " + s);
-        }
-        return v;
-      }
-    }
-
-    function getLapsCompletedByTime(lapTimes, tSeconds) {
-      var count = 0;
-      for (var i = 0; i < lapTimes.length; i++) {
-        if (lapTimes[i] <= tSeconds) {
-          count++;
-        }
-      }
-      return count;
-    }
-
-    function positionToOffsetWithinLap(posM, direction) {
-      var dir = direction.toLowerCase();
-      if (dir === "out") {
-        return posM; // 0..25
-      } else if (dir === "back") {
-        return LAP_LENGTH_M - posM; // 25..50
-      } else {
-        throw new Error("direction must be 'out' or 'back'");
-      }
-    }
-
-    function padRight(text, width) {
-      text = String(text);
-      while (text.length < width) {
-        text += " ";
-      }
-      return text;
-    }
-
-    function clearResults() {
-      document.getElementById("resultsBox").textContent =
-        "Per-minute results will appear here.";
-      document.getElementById("lapError").textContent = "";
-      document.getElementById("minuteError").textContent = "";
-    }
-
-    function clearAll() {
-      document.getElementById("lapTimes").value = "";
-      for (var m = 1; m <= 6; m++) {
-        document.getElementById("pos_" + m).value = "";
-        document.getElementById("dir_" + m).value = "out";
-      }
-      clearResults();
-      resetStopwatch();
-      initLapExample(); // restore fake placeholder
-    }
-
-    // --- Fake placeholder system for Lap Times textarea ---
-    var lapExampleText = "e.g.\n0:48\n1:35\n2:50";
-
-    function initLapExample() {
-      var ta = document.getElementById("lapTimes");
-      if (!ta) return;
-
-      // If empty, show example
-      if (!ta.value) {
-        ta.value = lapExampleText;
-        ta.classList.add("placeholder-textarea");
-      }
-
-      ta.addEventListener("focus", function () {
-        if (ta.value === lapExampleText) {
-          ta.value = "";
-          ta.classList.remove("placeholder-textarea");
-        }
-      });
-
-      ta.addEventListener("blur", function () {
-        var trimmed = ta.value.replace(/^\s+|\s+$/g, "");
-        if (!trimmed) {
-          ta.value = lapExampleText;
-          ta.classList.add("placeholder-textarea");
-        }
-      });
-    }
-
-    // --- Stopwatch helpers ---
-
-    function formatTimeMs(ms) {
-      if (ms < 0) ms = 0;
-      var totalSeconds = ms / 1000;
-      var mins = Math.floor(totalSeconds / 60);
-      var secsFloat = totalSeconds - mins * 60;
-      var secs = Math.floor(secsFloat);
-      var tenths = Math.floor((secsFloat - secs) * 10);
-      if (tenths < 0) tenths = 0;
-      var secsStr = (secs < 10 ? "0" : "") + secs;
-      return mins + ":" + secsStr + "." + tenths;
-    }
-
-    function updateStopwatchDisplay() {
-      if (!stopwatchRunning) return;
-      var now = new Date().getTime();
-      var elapsed = now - stopwatchStartTime;
-      if (elapsed >= SIX_MIN_MS) {
-        elapsed = SIX_MIN_MS;
-        document.getElementById("stopwatchTime").textContent = formatTimeMs(elapsed);
-        stopStopwatch(true);
-        return;
-      }
-      document.getElementById("stopwatchTime").textContent = formatTimeMs(elapsed);
-    }
-
-    function startStopwatch() {
-      if (stopwatchRunning) return;
-      stopwatchStartTime = new Date().getTime();
-      stopwatchRunning = true;
-
-      var startBtn = document.getElementById("stopwatchStart");
-      var lapBtn = document.getElementById("stopwatchLap");
-      var resetBtn = document.getElementById("stopwatchReset");
-
-      startBtn.disabled = true;
-      lapBtn.disabled = false;
-      resetBtn.disabled = false;
-
-      if (stopwatchIntervalId !== null) {
-        clearInterval(stopwatchIntervalId);
-      }
-      stopwatchIntervalId = setInterval(updateStopwatchDisplay, 100);
-    }
-
-    function stopStopwatch(locked) {
-      stopwatchRunning = false;
-      if (stopwatchIntervalId !== null) {
-        clearInterval(stopwatchIntervalId);
-        stopwatchIntervalId = null;
-      }
-      var startBtn = document.getElementById("stopwatchStart");
-      var lapBtn = document.getElementById("stopwatchLap");
-
-      if (locked) {
-        // After 6 minutes, lock out further starts/laps
-        startBtn.disabled = true;
-        lapBtn.disabled = true;
-      } else {
-        startBtn.disabled = false;
-        lapBtn.disabled = true;
-      }
-    }
-
-    function resetStopwatch() {
-      stopStopwatch(false);
-      stopwatchStartTime = null;
-      document.getElementById("stopwatchTime").textContent = "0:00.0";
-
-      var startBtn = document.getElementById("stopwatchStart");
-      var lapBtn = document.getElementById("stopwatchLap");
-      var resetBtn = document.getElementById("stopwatchReset");
-
-      startBtn.disabled = false;
-      lapBtn.disabled = true;
-      // Reset can stay enabled
-      resetBtn.disabled = false;
-    }
-
-    function lapStopwatch() {
-      if (!stopwatchRunning) return;
-      var now = new Date().getTime();
-      var elapsed = now - stopwatchStartTime;
-      if (elapsed > SIX_MIN_MS) {
-        elapsed = SIX_MIN_MS;
-      }
-
-      var lapString = formatTimeMs(elapsed);
-      var ta = document.getElementById("lapTimes");
-
-      // Clear placeholder if present
-      if (ta.value === lapExampleText) {
-        ta.value = "";
-        ta.classList.remove("placeholder-textarea");
-      }
-
-      var current = ta.value.replace(/\s+$/g, "");
-      if (!current) {
-        ta.value = lapString;
-      } else {
-        ta.value = current + "\n" + lapString;
-      }
-
-      ta.scrollTop = ta.scrollHeight;
-    }
-
-    function calculate() {
-      var lapErrorDiv = document.getElementById("lapError");
-      var minuteErrorDiv = document.getElementById("minuteError");
-      var resultsBox = document.getElementById("resultsBox");
-
-      lapErrorDiv.textContent = "";
-      minuteErrorDiv.textContent = "";
-
-      var lapTa = document.getElementById("lapTimes");
-      var rawLapText = lapTa.value;
-      var lapTimes = [];
-
-      // Treat example text as "empty"
-      if (rawLapText === lapExampleText) {
-        rawLapText = "";
-      }
-
-      var lapText = rawLapText.replace(/^\s+|\s+$/g, "");
-
-      // 1) Parse lap times
-      if (lapText.length > 0) {
-        var lines = lapText.split(/\r?\n/);
-        for (var i = 0; i < lines.length; i++) {
-          var line = lines[i].replace(/^\s+|\s+$/g, "");
-          if (!line) continue;
-          try {
-            var t = parseTimeToSeconds(line);
-            lapTimes.push(t);
-          } catch (e) {
-            lapErrorDiv.textContent =
-              'Error parsing lap time: "' + line +
-              '". Use mm:ss (e.g. 0:48) or seconds (e.g. 48.0).';
-            resultsBox.textContent = "Error: could not parse lap times.";
-            return;
-          }
-        }
-        lapTimes.sort(function(a, b) { return a - b; });
-      }
-
-      // 2) Parse minute positions
-      var minuteInfo = [];
-      for (var m = 1; m <= 6; m++) {
-        var posInput = document.getElementById("pos_" + m);
-        var dirSelect = document.getElementById("dir_" + m);
-        var posStr = posInput.value.replace(/^\s+|\s+$/g, "");
-        var dirStr = dirSelect.value.replace(/^\s+|\s+$/g, "").toLowerCase();
-
-        if (!posStr) {
-          minuteErrorDiv.textContent =
-            "Please enter a position (0–25 m) for minute " + m + ".";
-          resultsBox.textContent = "Error: missing position for minute " + m + ".";
-          return;
-        }
-
-        var pos = parseFloat(posStr);
-        if (isNaN(pos) || pos < 0 || pos > 25) {
-          minuteErrorDiv.textContent =
-            "Position for minute " + m + " must be a number between 0 and 25.";
-          resultsBox.textContent = "Error: invalid position for minute " + m + ".";
-          return;
-        }
-
-        if (dirStr !== "out" && dirStr !== "back") {
-          minuteErrorDiv.textContent =
-            "Direction for minute " + m + " must be 'out' or 'back'.";
-          resultsBox.textContent = "Error: invalid direction for minute " + m + ".";
-          return;
-        }
-
-        minuteInfo.push({ minute: m, posM: pos, dir: dirStr });
-      }
-
-      // 3) Compute per-minute distances
-      var results = [];
-      var prevTotalDistance = 0.0;
-
-      for (var j = 0; j < minuteInfo.length; j++) {
-        var info = minuteInfo[j];
-        var minute = info.minute;
-        var tSec = minute * 60; // seconds at that minute
-
-        var lapsCompleted = getLapsCompletedByTime(lapTimes, tSec);
-        var distFullLaps = lapsCompleted * LAP_LENGTH_M;
-
-        var offset = positionToOffsetWithinLap(info.posM, info.dir);
-        var totalDistance = distFullLaps + offset;
-
-        // Enforce non-decreasing total distance (no backwards walking)
-        if (totalDistance < prevTotalDistance) {
-          totalDistance = prevTotalDistance;
-        }
-
-        var distanceThisMinute = totalDistance - prevTotalDistance;
-        var lapsThisMinute = distanceThisMinute / LAP_LENGTH_M;
-
-        results.push({
-          minute: minute,
-          timeS: tSec,
-          distanceThisMinuteM: distanceThisMinute,
-          lapsThisMinute: lapsThisMinute
-        });
-
-        prevTotalDistance = totalDistance;
-      }
-
-      // 4) Totals
-      var totalDistanceAll = 0.0;
-      for (var k = 0; k < results.length; k++) {
-        totalDistanceAll += results[k].distanceThisMinuteM;
-      }
-      var totalLapsAll = totalDistanceAll / LAP_LENGTH_M;
-
-      // 5) Format output
-      var lines = [];
-      lines.push("Per-Minute Distances");
-      lines.push("1 lap = 50 m (25 m out + 25 m back)");
-      lines.push("");
-      lines.push(
-        padRight("Min", 4) +
-        padRight("Time(s)", 9) +
-        padRight("m this min", 13) +
-        padRight("laps this min", 15)
-      );
-      lines.push("---------------------------------------------");
-
-      for (var r = 0; r < results.length; r++) {
-        var row = results[r];
-        lines.push(
-          padRight(row.minute, 4) +
-          padRight(row.timeS.toFixed(1), 9) +
-          padRight(row.distanceThisMinuteM.toFixed(2), 13) +
-          padRight(row.lapsThisMinute.toFixed(3), 15)
-        );
-      }
-
-      lines.push("");
-      lines.push("Totals (0–6 minutes):");
-      lines.push("  Total distance: " + totalDistanceAll.toFixed(2) + " m");
-      lines.push("  Total laps:     " + totalLapsAll.toFixed(3) + " laps");
-
-      resultsBox.textContent = lines.join("\n");
-    }
-
-    document.getElementById("calcButton").addEventListener("click", calculate);
-    document.getElementById("clearResultsButton").addEventListener("click", clearResults);
-    document.getElementById("clearAllButton").addEventListener("click", clearAll);
-
-    // Stopwatch button wiring
-    document.getElementById("stopwatchStart").addEventListener("click", startStopwatch);
-    document.getElementById("stopwatchLap").addEventListener("click", lapStopwatch);
-    document.getElementById("stopwatchReset").addEventListener("click", resetStopwatch);
-
-    // Initialize fake placeholder and stopwatch UI
-    initLapExample();
-    resetStopwatch();
-  </script>
+  <!-- External javascript file instead of inline scripts from Original_index.html -->
+  <script src="script.js"></script>
 </body>
 </html>
