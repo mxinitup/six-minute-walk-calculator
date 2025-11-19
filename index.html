@@ -14,51 +14,35 @@
 
     <!-- 
       In Original_index.html there was a paragraph explaining how the tool works.
-      Keeping a short version here is useful for a new user and also shows how this build relates to the original.
+      Keeping a short version here is useful for a new user and also shows how this build relates to 
+      your original text-based calculator. Wording is lightly cleaned but the meaning is the same.
     -->
     <div class="card">
       <p class="small-text">
         This tool uses cumulative lap times from a 50 m track plus sticky-note positions at each minute
-        to calculate distance walked in each minute and total distance walked over 6 minutes.
+        to calculate distance walked in each minute and total distance over 6 minutes.
       </p>
     </div>
 
     <!-- 
-      Two column layout on larger screens:
-      - Original_index.html used layout-two for "Lap Times" and "Sticky-Note Positions".
-      - Here we keep the same idea but the left side is now the stopwatch and live lap table.
-      - Right side stays as the minute sticky-note entry.
-      On tablets this feels natural and uses the horizontal space better.
+      MAIN TWO COLUMN LAYOUT:
+      Left: Stopwatch + lap list
+      Right: Sticky-note positions for each minute
     -->
     <div class="layout-two">
-      <!-- TIMER + LAP RECORDER CARD -->
+      <!-- STOPWATCH CARD -->
       <div class="card">
         <h2>Stopwatch and lap recorder</h2>
-        <!-- 
-          Original_index.html had a textarea for lap times.
-          The user had to type cumulative times manually.
-          This display replaces that workflow entirely with a real stopwatch.
-        -->
 
         <div class="timer-display" id="timerDisplay">00:00.0</div>
 
         <div class="button-row">
-          <!-- 
-            toggleButton replaces a separate Start and Stop control.
-            One button is easier to hit on a tablet with one hand.
-          -->
           <button id="toggleButton">Start</button>
-          <!-- Lap and Reset start disabled just like in your split version -->
           <button id="lapButton" disabled>Lap</button>
           <button id="resetButton" class="secondary" disabled>Reset</button>
         </div>
 
-        <!-- 
-          This table shows the cumulative lap times.
-          In the original page the user would type them into a textarea.
-          Now the stopwatch fills this table and the calculator reads from the internal lapTimes array.
-        -->
-        <div class="minute-grid-wrapper touch-safe">
+        <div class="minute-grid-wrapper">
           <table class="minute-grid" id="lapTable">
             <thead>
               <tr>
@@ -82,10 +66,7 @@
         <h2>Sticky-note positions (each minute)</h2>
         <!-- 
           This description is adapted from Original_index.html.
-          The logic behind the calculator is the same:
-          - One row per minute.
-          - Position is between 0 and 25 m.
-          - Direction is either "out" or "back".
+          It explains that the floor is 0–25 m out and 25–0 m back.
         -->
         <div class="small-text">
           For each minute 1 to 6, enter the floor marking at that minute (0 to 25 m)
@@ -102,69 +83,226 @@
               </tr>
             </thead>
             <tbody>
-              <!-- 
-                The structure matches Original_index.html, but wording is slightly updated.
-                Note the explicit value attributes on the select options, which the original already used.
-                Your split index had dropped the values which is fine in practice but less explicit.
-              -->
               <tr>
                 <td>1</td>
-                <td><input id="pos_1" type="number" min="0" max="25" step="0.1" /></td>
                 <td>
-                  <select id="dir_1">
-                    <option value="out">out</option>
-                    <option value="back">back</option>
+                  <select id="pos_1">
+                    <option value="">–</option>
+                    <option value="0">0</option>
+                    <option value="1">1</option>
+                    <option value="2">2</option>
+                    <option value="3">3</option>
+                    <option value="4">4</option>
+                    <option value="5">5</option>
+                    <option value="6">6</option>
+                    <option value="7">7</option>
+                    <option value="8">8</option>
+                    <option value="9">9</option>
+                    <option value="10">10</option>
+                    <option value="11">11</option>
+                    <option value="12">12</option>
+                    <option value="13">13</option>
+                    <option value="14">14</option>
+                    <option value="15">15</option>
+                    <option value="16">16</option>
+                    <option value="17">17</option>
+                    <option value="18">18</option>
+                    <option value="19">19</option>
+                    <option value="20">20</option>
+                    <option value="21">21</option>
+                    <option value="22">22</option>
+                    <option value="23">23</option>
+                    <option value="24">24</option>
+                    <option value="25">25</option>
                   </select>
+                </td>
+                <td>
+                  <button type="button" class="dir-toggle" id="dir_1" data-dir="out">out</button>
                 </td>
               </tr>
               <tr>
                 <td>2</td>
-                <td><input id="pos_2" type="number" min="0" max="25" step="0.1" /></td>
                 <td>
-                  <select id="dir_2">
-                    <option value="out">out</option>
-                    <option value="back">back</option>
+                  <select id="pos_2">
+                    <option value="">–</option>
+                    <option value="0">0</option>
+                    <option value="1">1</option>
+                    <option value="2">2</option>
+                    <option value="3">3</option>
+                    <option value="4">4</option>
+                    <option value="5">5</option>
+                    <option value="6">6</option>
+                    <option value="7">7</option>
+                    <option value="8">8</option>
+                    <option value="9">9</option>
+                    <option value="10">10</option>
+                    <option value="11">11</option>
+                    <option value="12">12</option>
+                    <option value="13">13</option>
+                    <option value="14">14</option>
+                    <option value="15">15</option>
+                    <option value="16">16</option>
+                    <option value="17">17</option>
+                    <option value="18">18</option>
+                    <option value="19">19</option>
+                    <option value="20">20</option>
+                    <option value="21">21</option>
+                    <option value="22">22</option>
+                    <option value="23">23</option>
+                    <option value="24">24</option>
+                    <option value="25">25</option>
                   </select>
+                </td>
+                <td>
+                  <button type="button" class="dir-toggle" id="dir_2" data-dir="out">out</button>
                 </td>
               </tr>
               <tr>
                 <td>3</td>
-                <td><input id="pos_3" type="number" min="0" max="25" step="0.1" /></td>
                 <td>
-                  <select id="dir_3">
-                    <option value="out">out</option>
-                    <option value="back">back</option>
+                  <select id="pos_3">
+                    <option value="">–</option>
+                    <option value="0">0</option>
+                    <option value="1">1</option>
+                    <option value="2">2</option>
+                    <option value="3">3</option>
+                    <option value="4">4</option>
+                    <option value="5">5</option>
+                    <option value="6">6</option>
+                    <option value="7">7</option>
+                    <option value="8">8</option>
+                    <option value="9">9</option>
+                    <option value="10">10</option>
+                    <option value="11">11</option>
+                    <option value="12">12</option>
+                    <option value="13">13</option>
+                    <option value="14">14</option>
+                    <option value="15">15</option>
+                    <option value="16">16</option>
+                    <option value="17">17</option>
+                    <option value="18">18</option>
+                    <option value="19">19</option>
+                    <option value="20">20</option>
+                    <option value="21">21</option>
+                    <option value="22">22</option>
+                    <option value="23">23</option>
+                    <option value="24">24</option>
+                    <option value="25">25</option>
                   </select>
+                </td>
+                <td>
+                  <button type="button" class="dir-toggle" id="dir_3" data-dir="out">out</button>
                 </td>
               </tr>
               <tr>
                 <td>4</td>
-                <td><input id="pos_4" type="number" min="0" max="25" step="0.1" /></td>
                 <td>
-                  <select id="dir_4">
-                    <option value="out">out</option>
-                    <option value="back">back</option>
+                  <select id="pos_4">
+                    <option value="">–</option>
+                    <option value="0">0</option>
+                    <option value="1">1</option>
+                    <option value="2">2</option>
+                    <option value="3">3</option>
+                    <option value="4">4</option>
+                    <option value="5">5</option>
+                    <option value="6">6</option>
+                    <option value="7">7</option>
+                    <option value="8">8</option>
+                    <option value="9">9</option>
+                    <option value="10">10</option>
+                    <option value="11">11</option>
+                    <option value="12">12</option>
+                    <option value="13">13</option>
+                    <option value="14">14</option>
+                    <option value="15">15</option>
+                    <option value="16">16</option>
+                    <option value="17">17</option>
+                    <option value="18">18</option>
+                    <option value="19">19</option>
+                    <option value="20">20</option>
+                    <option value="21">21</option>
+                    <option value="22">22</option>
+                    <option value="23">23</option>
+                    <option value="24">24</option>
+                    <option value="25">25</option>
                   </select>
+                </td>
+                <td>
+                  <button type="button" class="dir-toggle" id="dir_4" data-dir="out">out</button>
                 </td>
               </tr>
               <tr>
                 <td>5</td>
-                <td><input id="pos_5" type="number" min="0" max="25" step="0.1" /></td>
                 <td>
-                  <select id="dir_5">
-                    <option value="out">out</option>
-                    <option value="back">back</option>
+                  <select id="pos_5">
+                    <option value="">–</option>
+                    <option value="0">0</option>
+                    <option value="1">1</option>
+                    <option value="2">2</option>
+                    <option value="3">3</option>
+                    <option value="4">4</option>
+                    <option value="5">5</option>
+                    <option value="6">6</option>
+                    <option value="7">7</option>
+                    <option value="8">8</option>
+                    <option value="9">9</option>
+                    <option value="10">10</option>
+                    <option value="11">11</option>
+                    <option value="12">12</option>
+                    <option value="13">13</option>
+                    <option value="14">14</option>
+                    <option value="15">15</option>
+                    <option value="16">16</option>
+                    <option value="17">17</option>
+                    <option value="18">18</option>
+                    <option value="19">19</option>
+                    <option value="20">20</option>
+                    <option value="21">21</option>
+                    <option value="22">22</option>
+                    <option value="23">23</option>
+                    <option value="24">24</option>
+                    <option value="25">25</option>
                   </select>
+                </td>
+                <td>
+                  <button type="button" class="dir-toggle" id="dir_5" data-dir="out">out</button>
                 </td>
               </tr>
               <tr>
                 <td>6</td>
-                <td><input id="pos_6" type="number" min="0" max="25" step="0.1" /></td>
                 <td>
-                  <select id="dir_6">
-                    <option value="out">out</option>
-                    <option value="back">back</option>
+                  <select id="pos_6">
+                    <option value="">–</option>
+                    <option value="0">0</option>
+                    <option value="1">1</option>
+                    <option value="2">2</option>
+                    <option value="3">3</option>
+                    <option value="4">4</option>
+                    <option value="5">5</option>
+                    <option value="6">6</option>
+                    <option value="7">7</option>
+                    <option value="8">8</option>
+                    <option value="9">9</option>
+                    <option value="10">10</option>
+                    <option value="11">11</option>
+                    <option value="12">12</option>
+                    <option value="13">13</option>
+                    <option value="14">14</option>
+                    <option value="15">15</option>
+                    <option value="16">16</option>
+                    <option value="17">17</option>
+                    <option value="18">18</option>
+                    <option value="19">19</option>
+                    <option value="20">20</option>
+                    <option value="21">21</option>
+                    <option value="22">22</option>
+                    <option value="23">23</option>
+                    <option value="24">24</option>
+                    <option value="25">25</option>
                   </select>
+                </td>
+                <td>
+                  <button type="button" class="dir-toggle" id="dir_6" data-dir="out">out</button>
                 </td>
               </tr>
             </tbody>
@@ -182,11 +320,9 @@
     <!-- CALC BUTTONS CARD -->
     <div class="card">
       <div class="button-row">
-        <!-- Same ids as Original_index.html so the calculator logic stays recognizable -->
+        <!-- Same ids as Original_index.html so the existing script's event handlers work -->
         <button id="calcButton">Calculate</button>
-        <!-- Clear All now resets both stopwatch and minute inputs, as well as results -->
         <button id="clearAllButton" class="secondary">Clear all</button>
-        <!-- Clear Results uses the same behavior as the original but leaves all inputs intact -->
         <button id="clearResultsButton" class="secondary">Clear results</button>
       </div>
     </div>
@@ -195,8 +331,8 @@
     <div class="card">
       <h2>Results</h2>
       <!-- 
-        Same idea as the original pre block.
-        The calculator writes the formatted per minute and totals output here.
+        Same pre tag id as Original_index.html.
+        The refactored calculate() writes the formatted per minute and totals output here.
       -->
       <pre id="resultsBox">Per-minute results will appear here.</pre>
     </div>
