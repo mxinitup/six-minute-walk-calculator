@@ -6,7 +6,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>6-Minute Walk Test Calculator + Stopwatch</title>
   <!-- External stylesheet instead of inline styles from Original_index.html -->
-  <link rel="stylesheet" href="styles_manualswitch.css" />
+  <link rel="stylesheet" href="style.css" />
 </head>
 <body>
   <div class="container">
@@ -32,11 +32,11 @@
     <div class="layout-two">
       <!-- STOPWATCH CARD -->
       <div class="card">
-        <div class="card-header">
+        <div class="card-title-row">
           <h2>Stopwatch and lap recorder</h2>
 
-          <div class="header-toggle">
-            <span class="small-text">Manual</span>
+          <div class="mode-switch">
+            <span class="mode-label">Manual</span>
             <label class="switch" aria-label="Toggle manual lap entry">
               <input type="checkbox" id="manualModeToggle" />
               <span class="slider"></span>
@@ -44,7 +44,7 @@
           </div>
         </div>
 
-        <!-- Stopwatch controls (hidden when Manual is ON) -->
+        <!-- Stopwatch mode UI -->
         <div id="stopwatchControls">
           <div class="timer-display" id="timerDisplay">00:00.0</div>
 
@@ -53,23 +53,37 @@
             <button id="lapButton" disabled>Lap</button>
             <button id="resetButton" class="secondary" disabled>Reset</button>
           </div>
+
+          <div class="minute-grid-wrapper">
+            <table class="minute-grid" id="lapTable">
+              <thead>
+                <tr>
+                  <th>Lap #</th>
+                  <th>Time</th>
+                </tr>
+              </thead>
+              <tbody id="lapTableBody"></tbody>
+            </table>
+          </div>
         </div>
 
-        <!-- Manual entry hint (shown when Manual is ON) -->
-        <div id="manualHint" class="small-text hidden">
-          Enter cumulative lap times from your stopwatch (mm:ss). Rows auto-add as you type.
-        </div>
+        <!-- Manual mode UI -->
+        <div id="manualControls" class="hidden">
+          <div class="small-text">
+            Enter cumulative lap times from your physical stopwatch (mm:ss). Rows auto-add as you type.
+          </div>
 
-        <div class="minute-grid-wrapper">
-          <table class="minute-grid" id="lapTable">
-            <thead>
-              <tr>
-                <th>Lap #</th>
-                <th id="lapTimeHeader">Time (mm:ss.s)</th>
-              </tr>
-            </thead>
-            <tbody id="lapTableBody"></tbody>
-          </table>
+          <div class="minute-grid-wrapper">
+            <table class="minute-grid" id="manualLapTable">
+              <thead>
+                <tr>
+                  <th>Lap #</th>
+                  <th>Time (mm:ss)</th>
+                </tr>
+              </thead>
+              <tbody id="manualLapTableBody"></tbody>
+            </table>
+          </div>
         </div>
 
         <div id="lapError" class="error"></div>
@@ -352,6 +366,6 @@
     </div>
   </div>
   <!-- External javascript file instead of inline scripts from Original_index.html -->
-  <script src="script_manualswitch.js"></script>
+  <script src="script.js"></script>
 </body>
 </html>
