@@ -219,25 +219,77 @@ pre {
   background-color: #9e9e9e;
 }
 
+
 /* ================================
-   Manual lap-time entry (optional)
+   Stopwatch header switch + manual mode
 ================================ */
 
 .hidden { display: none; }
 
-.mode-row {
-  margin-top: 0.75rem;
+.card-header {
   display: flex;
   align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 0.6rem;
 }
 
-.mode-toggle {
+.card-header h2 {
+  margin: 0;
+}
+
+.header-switch {
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  font-size: 0.95rem;
+  white-space: nowrap;
 }
 
-.manual-entry {
-  margin-top: 0.75rem;
+/* Switch control (slider toggle) */
+.switch {
+  position: relative;
+  display: inline-block;
+  width: 46px;
+  height: 26px;
+  flex: 0 0 auto;
+}
+
+.switch input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.slider {
+  position: absolute;
+  cursor: pointer;
+  inset: 0;
+  background-color: #bbb;
+  border-radius: 999px;
+  transition: 0.2s;
+}
+
+.slider:before {
+  position: absolute;
+  content: "";
+  height: 20px;
+  width: 20px;
+  left: 3px;
+  top: 3px;
+  background-color: white;
+  border-radius: 50%;
+  transition: 0.2s;
+}
+
+.switch input:checked + .slider {
+  background-color: #1976d2;
+}
+
+.switch input:checked + .slider:before {
+  transform: translateX(20px);
+}
+
+/* Manual lap table inputs */
+.manual-lap-input {
+  text-align: center;
 }

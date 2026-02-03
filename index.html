@@ -6,7 +6,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>6-Minute Walk Test Calculator + Stopwatch</title>
   <!-- External stylesheet instead of inline styles from Original_index.html -->
-  <link rel="stylesheet" href="styles.css" />
+  <link rel="stylesheet" href="styles_updated.css" />
 </head>
 <body>
   <div class="container">
@@ -32,56 +32,68 @@
     <div class="layout-two">
       <!-- STOPWATCH CARD -->
       <div class="card">
-        <h2>Stopwatch and lap recorder</h2>
+        <div class="card-header">
+          <h2>Stopwatch and lap recorder</h2>
 
-        <div class="timer-display" id="timerDisplay">00:00.0</div>
-
-        <div class="button-row">
-          <button id="toggleButton">Start</button>
-          <button id="lapButton" disabled>Lap</button>
-          <button id="resetButton" class="secondary" disabled>Reset</button>
-        </div>
-
-        <!-- Manual entry toggle + textarea (hidden unless enabled) -->
-        <div class="mode-row">
-          <label class="mode-toggle">
-            <input type="checkbox" id="manualModeToggle" />
-            <span>Manual lap times</span>
-          </label>
-        </div>
-
-        <div id="manualEntry" class="manual-entry hidden">
-          <div class="small-text" style="margin-bottom:0.4rem;">
-            Paste cumulative lap times (mm:ss.s), one per line:
+          <div class="header-switch">
+            <span class="small-text">Manual</span>
+            <label class="switch">
+              <input type="checkbox" id="manualModeToggle" />
+              <span class="slider"></span>
+            </label>
           </div>
-          <textarea
-            id="manualLapTimes"
-            rows="6"
-            placeholder="00:32.1&#10;01:04.8&#10;01:36.0"
-          ></textarea>
-          <div class="small-text">Example format: 02:15.3 (minutes:seconds.tenths)</div>
         </div>
 
-        <div class="minute-grid-wrapper">
-          <table class="minute-grid" id="lapTable">
-            <thead>
-              <tr>
-                <th>Lap #</th>
-                <th>Time (mm:ss.s)</th>
-              </tr>
-            </thead>
-            <tbody id="lapTableBody"></tbody>
-          </table>
+        <!-- Stopwatch mode -->
+        <div id="stopwatchSection">
+          <div class="timer-display" id="timerDisplay">00:00.0</div>
+
+          <div class="button-row">
+            <button id="toggleButton">Start</button>
+            <button id="lapButton" disabled>Lap</button>
+            <button id="resetButton" class="secondary" disabled>Reset</button>
+          </div>
+
+          <div class="minute-grid-wrapper">
+            <table class="minute-grid" id="lapTable">
+              <thead>
+                <tr>
+                  <th>Lap #</th>
+                  <th>Time (mm:ss.s)</th>
+                </tr>
+              </thead>
+              <tbody id="lapTableBody"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Manual mode -->
+        <div id="manualSection" class="hidden">
+          <div class="small-text" style="margin-top:0.2rem;">
+            Enter cumulative lap times (mm:ss). Leave extra rows blank.
+          </div>
+
+          <div class="minute-grid-wrapper">
+            <table class="minute-grid" id="manualLapTable">
+              <thead>
+                <tr>
+                  <th>Lap #</th>
+                  <th>Cumulative time (mm:ss)</th>
+                </tr>
+              </thead>
+              <tbody id="manualLapTableBody"></tbody>
+            </table>
+          </div>
         </div>
 
         <!-- 
-          This error block is new here, but the idea comes from the original lapError div.
-          It is used to warn if a lap is ignored because its time is not later than the previous one.
+          This error block is used to warn about lap time issues (e.g., format problems or non-increasing times).
         -->
         <div id="lapError" class="error"></div>
       </div>
 
-      <!-- STICKY NOTE POSITIONS CARD -->
+
+<!-- STICKY NOTE POSITIONS CARD -->
       <div class="card">
         <h2>Sticky-note positions (each minute)</h2>
         <!-- 
@@ -358,6 +370,6 @@
     </div>
   </div>
   <!-- External javascript file instead of inline scripts from Original_index.html -->
-  <script src="script.js"></script>
+  <script src="script_updated.js"></script>
 </body>
 </html>
