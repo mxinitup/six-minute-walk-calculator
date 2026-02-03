@@ -285,7 +285,7 @@ function resetTimer() {
   // Sync the UI back to stopwatch mode
   setManualMode(false);
   // Clear stopwatch-related errors and keep the minute error/result untouched
-  lapErrorDiv.textContent = "";
+  if (showErrors) { lapErrorDiv.textContent = ""; }
 }
 
 /**
@@ -294,7 +294,7 @@ function resetTimer() {
  */
 function toggleTimer() {
   // Clear any existing lap error on state change just to keep things clean
-  lapErrorDiv.textContent = "";
+  if (showErrors) { lapErrorDiv.textContent = ""; }
 
   if (!stopwatchRunning) {
     startTimer();
@@ -331,7 +331,7 @@ function recordLap() {
   }
 
   lapTimes.push(currentSec);
-  lapErrorDiv.textContent = "";
+  if (showErrors) { lapErrorDiv.textContent = ""; }
 
   renderLapTable();
 }
@@ -374,14 +374,19 @@ function renderLapTable() {
 
     const input = document.createElement("input");
     input.type = "text";
-    input.inputMode = "numeric";
+    input.inputMode = "text";
+    input.autocomplete = "off";
+    input.autocapitalize = "off";
+    input.spellcheck = false;
     input.placeholder = "mm:ss";
     input.className = "manual-time-input";
     input.value = values[i] || "";
     input.dataset.index = String(i);
 
     input.addEventListener("input", () => {
-      syncLapTimesFromManualTable();
+      // Don't show validation errors while the user is typing
+      lapErrorDiv.textContent = "";
+      syncLapTimesFromManualTable(false);
     });
 
     // On blur, normalize whatever they typed into mm:ss (without being picky while typing)
@@ -390,7 +395,7 @@ function renderLapTable() {
       if (normalized) {
         input.value = normalized;
       }
-      syncLapTimesFromManualTable();
+      syncLapTimesFromManualTable(false);
     });
 
     tdTime.appendChild(input);
@@ -404,7 +409,7 @@ function renderLapTable() {
    Manual mode helpers (table-based cumulative lap times)
    ========================= */
 
-function syncLapTimesFromManualTable() {
+function syncLapTimesFromManualTable(showErrors = false) {
   if (!isManualMode) return true;
 
   const inputs = Array.from(lapTableBody.querySelectorAll("input.manual-time-input"));
@@ -421,25 +426,27 @@ function syncLapTimesFromManualTable() {
     }
 
     if (seenBlank) {
-      lapErrorDiv.textContent = "Manual entry error: please fill laps in order without skipping rows.";
+      if (showErrors) {
+        if (showErrors) { lapErrorDiv.textContent = "Manual entry error: please fill laps in order without skipping rows."; }
+      }
       return false;
     }
 
     const t = parseFlexibleTimeToSeconds(v);
     if (t === null) {
-      lapErrorDiv.textContent = `Manual entry error on lap ${i + 1}: "${v}". Examples: :37, 1:40, 2:15.`;
+      if (showErrors) { lapErrorDiv.textContent = `Manual entry error on lap ${i + 1}: "${v}". Examples: :37, 1:40, 2:15.`; }
       return false;
     }
 
     if (secs.length > 0 && t <= secs[secs.length - 1]) {
-      lapErrorDiv.textContent = `Manual entry error on lap ${i + 1}: times must be strictly increasing.`;
+      if (showErrors) { lapErrorDiv.textContent = `Manual entry error on lap ${i + 1}: times must be strictly increasing.`; }
       return false;
     }
 
     secs.push(t);
   }
 
-  lapErrorDiv.textContent = "";
+  if (showErrors) { lapErrorDiv.textContent = ""; }
   lapTimes = secs;
 
   // Auto-add a new blank row when the last row is filled
@@ -546,11 +553,11 @@ function padRight(text, width) {
 
 function calculate() {
   // Clear previous errors
-  lapErrorDiv.textContent = "";
+  if (showErrors) { lapErrorDiv.textContent = ""; }
   minuteErrorDiv.textContent = "";
 
   if (isManualMode) {
-    const ok = syncLapTimesFromManualTable();
+    const ok = syncLapTimesFromManualTable(true);
     if (!ok) {
       resultsBox.textContent = "Error: fix manual lap times before calculating.";
       return;
@@ -679,7 +686,7 @@ function calculate() {
  */
 function clearResults() {
   resultsBox.textContent = "Per-minute results will appear here.";
-  lapErrorDiv.textContent = "";
+  if (showErrors) { lapErrorDiv.textContent = ""; }
   minuteErrorDiv.textContent = "";
 }
 
