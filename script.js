@@ -560,6 +560,10 @@ function positionToOffsetWithinLap(posM, direction) {
   if (dir === "out") {
     return posM;
   } else if (dir === "back") {
+    // If the subject is walking "back" and the sticky note position is 0,
+    // they are at the start line (end of a lap). In that case the within-lap
+    // offset should be 0, not 50, otherwise we double-count a full lap.
+    if (posM === 0) return 0;
     return LAP_LENGTH_M - posM;
   }
   throw new Error('direction must be "out" or "back"');
