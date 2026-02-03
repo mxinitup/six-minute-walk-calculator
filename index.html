@@ -6,7 +6,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>6-Minute Walk Test Calculator + Stopwatch</title>
   <!-- External stylesheet instead of inline styles from Original_index.html -->
-  <link rel="stylesheet" href="style.css" />
+  <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
   <div class="container">
@@ -35,16 +35,15 @@
         <div class="card-title-row">
           <h2>Stopwatch and lap recorder</h2>
 
-          <div class="mode-switch">
-            <span class="mode-label">Manual</span>
-            <label class="switch" aria-label="Toggle manual lap entry">
+          <div class="toggle-inline" aria-label="Manual cumulative lap time entry">
+            <span class="toggle-text">Manual</span>
+            <label class="switch">
               <input type="checkbox" id="manualModeToggle" />
               <span class="slider"></span>
             </label>
           </div>
         </div>
 
-        <!-- Stopwatch mode UI -->
         <div id="stopwatchControls">
           <div class="timer-display" id="timerDisplay">00:00.0</div>
 
@@ -53,39 +52,28 @@
             <button id="lapButton" disabled>Lap</button>
             <button id="resetButton" class="secondary" disabled>Reset</button>
           </div>
-
-          <div class="minute-grid-wrapper">
-            <table class="minute-grid" id="lapTable">
-              <thead>
-                <tr>
-                  <th>Lap #</th>
-                  <th>Time</th>
-                </tr>
-              </thead>
-              <tbody id="lapTableBody"></tbody>
-            </table>
-          </div>
         </div>
 
-        <!-- Manual mode UI -->
-        <div id="manualControls" class="hidden">
-          <div class="small-text">
-            Enter cumulative lap times from your physical stopwatch (mm:ss). Rows auto-add as you type.
-          </div>
-
-          <div class="minute-grid-wrapper">
-            <table class="minute-grid" id="manualLapTable">
-              <thead>
-                <tr>
-                  <th>Lap #</th>
-                  <th>Time (mm:ss)</th>
-                </tr>
-              </thead>
-              <tbody id="manualLapTableBody"></tbody>
-            </table>
-          </div>
+        <div id="manualHint" class="small-text hidden">
+          Enter cumulative lap times from your stopwatch (mm:ss). Rows auto-add as you type.
         </div>
 
+        <div class="minute-grid-wrapper">
+          <table class="minute-grid" id="lapTable">
+            <thead>
+              <tr>
+                <th>Lap #</th>
+                <th id="lapTimeHeader">Time (mm:ss.s)</th>
+              </tr>
+            </thead>
+            <tbody id="lapTableBody"></tbody>
+          </table>
+        </div>
+
+        <!-- 
+          This error block is new here, but the idea comes from the original lapError div.
+          It is used to warn if a lap is ignored because its time is not later than the previous one.
+        -->
         <div id="lapError" class="error"></div>
       </div>
 
