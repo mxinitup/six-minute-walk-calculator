@@ -30,13 +30,13 @@ const lapButton = document.getElementById("lapButton");
 const resetButton = document.getElementById("resetButton");
 const timerDisplayEl = document.getElementById("timerDisplay");
 const lapTableBody = document.getElementById("lapTableBody");
+const stopwatchTitleEl = document.getElementById("stopwatchTitle");
 
 // Manual mode (switch-style toggle)
 const manualModeToggle = document.getElementById("manualModeToggle");
 const stopwatchControlsEl = document.getElementById("stopwatchControls");
 const manualHintEl = document.getElementById("manualHint");
 const lapTimeHeaderEl = document.getElementById("lapTimeHeader");
-const stopwatchTitleEl = document.getElementById("stopwatchTitle");
 
 let isManualMode = false;
 
@@ -87,65 +87,9 @@ function parseTimeMMSS(str) {
   return minutes * 60 + seconds;
 }
 
-/**
- * Parse flexible time input for manual mode.
- * Accepts:
- *   ":37"  -> 0:37
- *   "37"   -> 0:37
- *   "1:4"  -> 1:04
- *   "1:40" -> 1:40
- *   "2:75" -> 3:15 (auto-carry)
- * Returns integer seconds or null if unparseable.
- */
-function parseFlexibleTimeToSeconds(str) {
-  const raw = String(str || "").trim();
-  if (!raw) return null;
-
-  // :ss
-  let m = raw.match(/^:(\d{1,3})$/);
-  if (m) {
-    const s = parseInt(m[1], 10);
-    if (Number.isNaN(s) || s < 0) return null;
-    return s;
-  }
-
-  // mm:ss (allow 1+ digits for mm, allow 1+ digits for ss and carry)
-  m = raw.match(/^(\d+):(\d+)$/);
-  if (m) {
-    const minutes = parseInt(m[1], 10);
-    const seconds = parseInt(m[2], 10);
-    if (Number.isNaN(minutes) || Number.isNaN(seconds) || minutes < 0 || seconds < 0) return null;
-    return minutes * 60 + seconds;
-  }
-
-  // ss only
-  m = raw.match(/^(\d{1,6})$/);
-  if (m) {
-    const s = parseInt(m[1], 10);
-    if (Number.isNaN(s) || s < 0) return null;
-    return s;
-  }
-
-  return null;
-}
-
-/** Normalize flexible input into mm:ss for display. Returns "" if invalid/blank. */
-function normalizeManualTimeInputToMMSS(str) {
-  const raw = String(str || "").trim();
-  if (!raw) return "";
-  const totalSeconds = parseFlexibleTimeToSeconds(raw);
-  if (totalSeconds === null) return "";
-  return formatTimeMMSS(totalSeconds);
-}
-
 function setLapHeaderForMode() {
   if (!lapTimeHeaderEl) return;
   lapTimeHeaderEl.textContent = isManualMode ? "Time (mm:ss)" : "Time (mm:ss.s)";
-}
-
-function setStopwatchTitleForMode() {
-  if (!stopwatchTitleEl) return;
-  stopwatchTitleEl.textContent = isManualMode ? "Lap recorder" : "Stopwatch and lap recorder";
 }
 
 /**
@@ -285,7 +229,7 @@ function resetTimer() {
   // Sync the UI back to stopwatch mode
   setManualMode(false);
   // Clear stopwatch-related errors and keep the minute error/result untouched
-  if (showErrors) { lapErrorDiv.textContent = ""; }
+  lapErrorDiv.textContent = "";
 }
 
 /**
@@ -294,7 +238,7 @@ function resetTimer() {
  */
 function toggleTimer() {
   // Clear any existing lap error on state change just to keep things clean
-  if (showErrors) { lapErrorDiv.textContent = ""; }
+  lapErrorDiv.textContent = "";
 
   if (!stopwatchRunning) {
     startTimer();
@@ -331,7 +275,7 @@ function recordLap() {
   }
 
   lapTimes.push(currentSec);
-  if (showErrors) { lapErrorDiv.textContent = ""; }
+  lapErrorDiv.textContent = "";
 
   renderLapTable();
 }
@@ -361,56 +305,139 @@ function renderLapTable() {
     return;
   }
 
-  // Manual mode: render input rows (one extra blank row at the end).
-  // IMPORTANT UX: we do NOT auto-add rows while the user is actively typing,
-  // because re-rendering/focusing can steal the cursor and makes phone entry painful.
-  const values = lapTimes.map((t) => formatTimeMMSS(t));
-  const rowCount = Math.max(1, values.length + 1);
+  // Manual mode: render input rows (one extra blank row at the end)
+// Note: we avoid re-rendering while the user is typing to prevent focus-jumps on mobile.
+const values = lapTimes.map((t) => formatTimeMMSS(t));
+const rowCount = Math.max(1, values.length + 1);
 
-  for (let i = 0; i < rowCount; i++) {
-    appendManualRow(i, values[i] || "");
-  }
-}
-
-/** Create/append a single manual row (0-based index) with consistent listeners. */
-function appendManualRow(index, value) {
+for (let i = 0; i < rowCount; i++) {
   const tr = document.createElement("tr");
   const tdLap = document.createElement("td");
   const tdTime = document.createElement("td");
 
-  tdLap.textContent = index + 1;
+  tdLap.textContent = i + 1;
+
+  const input = document.createElement("input");
+  input.type = "text";
+  input.inputMode = "text"; // full keyboard on mobile (allows ':')
+  input.placeholder = "mm:ss";
+  input.autocomplete = "off";
+  input.autocapitalize = "off";
+  input.spellcheck = false;
+  input.className = "manual-time-input";
+  input.value = values[i] || "";
+  input.dataset.index = String(i);
+
+  // While typing: if the last row becomes parseable, add the next blank row without stealing focus.
+  input.addEventListener("input", () => {
+    maybeAppendManualRowWhileTyping(input);
+  });
+
+  // Don't validate while typing. We'll normalize on blur and validate on Calculate.
+  input.addEventListener("input", () => {
+    maybeAppendManualRowWhileTyping(input);
+  });
+
+  input.addEventListener("blur", () => {
+    normalizeManualInputValue(input);
+    maybeAppendManualRowAfterBlur(input);
+  });
+
+  // If the user hits Enter/Done, treat it like blur for normalization and row add.
+  input.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      input.blur();
+    }
+  });
+
+  tdTime.appendChild(input);
+  tr.appendChild(tdLap);
+  tr.appendChild(tdTime);
+  lapTableBody.appendChild(tr);
+}
+}
+
+/* =========================
+   Manual mode helpers (table-based cumulative lap times)
+   ========================= */
+
+function parseFlexibleTimeToSeconds(raw) {
+  const s = String(raw || "").trim();
+  if (!s) return null;
+
+  // Accept:
+  //  - ":37"  => 0:37
+  //  - "37"   => 0:37
+  //  - "1:40" => 1:40
+  //  - "1:4"  => 1:04
+  //  - "2:75" => 3:15 (carry seconds)
+  //  - "01:40" => 1:40
+  //
+  // Reject non-digits (besides ':')
+  if (!/^[0-9:]+$/.test(s)) return null;
+
+  if (s.includes(":")) {
+    const parts = s.split(":");
+    if (parts.length !== 2) return null;
+    const left = parts[0];   // minutes (may be empty)
+    const right = parts[1];  // seconds (1-2 digits, or more if user types it)
+    if (right.length === 0) return null;
+
+    const minutes = left === "" ? 0 : parseInt(left, 10);
+    if (!Number.isFinite(minutes) || minutes < 0) return null;
+
+    const secondsRaw = parseInt(right, 10);
+    if (!Number.isFinite(secondsRaw) || secondsRaw < 0) return null;
+
+    return minutes * 60 + secondsRaw;
+  }
+
+  // No colon: treat as seconds
+  const secondsOnly = parseInt(s, 10);
+  if (!Number.isFinite(secondsOnly) || secondsOnly < 0) return null;
+  return secondsOnly;
+}
+
+function normalizeManualInputValue(inputEl) {
+  const raw = inputEl.value.trim();
+  if (!raw) return;
+
+  const secs = parseFlexibleTimeToSeconds(raw);
+  if (secs === null) return; // don't fight the user if it's not parseable yet
+
+  inputEl.value = formatTimeMMSS(secs);
+}
+
+function appendManualBlankRow() {
+  const currentRows = lapTableBody.querySelectorAll("tr").length;
+  const nextIndex = currentRows; // 0-based index for new row
+  const tr = document.createElement("tr");
+  const tdLap = document.createElement("td");
+  const tdTime = document.createElement("td");
+
+  tdLap.textContent = String(nextIndex + 1);
 
   const input = document.createElement("input");
   input.type = "text";
   input.inputMode = "text";
+  input.placeholder = "mm:ss";
   input.autocomplete = "off";
   input.autocapitalize = "off";
   input.spellcheck = false;
-  input.placeholder = "mm:ss";
   input.className = "manual-time-input";
-  input.value = value;
-  input.dataset.index = String(index);
+  input.value = "";
+  input.dataset.index = String(nextIndex);
 
-  // While typing: keep silent, and NEVER add rows.
-  input.addEventListener("input", () => {
-    lapErrorDiv.textContent = "";
-    syncLapTimesFromManualTable(false);
+  input.addEventListener("blur", () => {
+    normalizeManualInputValue(input);
+    maybeAppendManualRowAfterBlur(input);
   });
 
-  // On blur: normalize and (if needed) add exactly one new blank row.
-  input.addEventListener("blur", () => {
-    const normalized = normalizeManualTimeInputToMMSS(input.value);
-    if (normalized) input.value = normalized;
-
-    const ok = syncLapTimesFromManualTable(false);
-    if (!ok) return;
-
-    // If the user just filled the last row, append a new blank row.
-    // Do NOT change focus (prevents the "jump to next row" problem).
-    const inputs = Array.from(lapTableBody.querySelectorAll("input.manual-time-input"));
-    const isLast = inputs.length > 0 && inputs[inputs.length - 1] === input;
-    if (isLast && input.value.trim()) {
-      appendManualRow(inputs.length, "");
+  input.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      input.blur();
     }
   });
 
@@ -420,55 +447,123 @@ function appendManualRow(index, value) {
   lapTableBody.appendChild(tr);
 }
 
-/* =========================
-   Manual mode helpers (table-based cumulative lap times)
-   ========================= */
+function maybeAppendManualRowAfterBlur(inputEl) {
+  if (!isManualMode) return;
+
+  const inputs = Array.from(lapTableBody.querySelectorAll("input.manual-time-input"));
+  if (inputs.length === 0) return;
+
+  const isLast = inputs[inputs.length - 1] === inputEl;
+  if (!isLast) return;
+
+  // If the last row has a value, ensure there is one extra blank row after it.
+  const lastHasValue = inputEl.value.trim().length > 0;
+  if (!lastHasValue) return;
+
+  appendManualBlankRow();
+}
+
+
+// While typing in the last row: as soon as the entry becomes parseable,
+// add a new blank row (WITHOUT changing focus). This reduces the need to tap "Done".
+let manualRowAddTimer = null;
+function maybeAppendManualRowWhileTyping(inputEl) {
+  if (!isManualMode) return;
+
+  const inputs = Array.from(lapTableBody.querySelectorAll("input.manual-time-input"));
+  if (inputs.length === 0) return;
+
+  const isLast = inputs[inputs.length - 1] === inputEl;
+  if (!isLast) return;
+
+  // Debounce so we don't spam row appends while the user is still mid-keystroke.
+  if (manualRowAddTimer) {
+    clearTimeout(manualRowAddTimer);
+  }
+
+  manualRowAddTimer = setTimeout(() => {
+    const inputsNow = Array.from(lapTableBody.querySelectorAll("input.manual-time-input"));
+    if (inputsNow.length === 0) return;
+    if (inputsNow[inputsNow.length - 1] !== inputEl) return; // no longer last
+
+    const raw = inputEl.value.trim();
+    if (!raw) return;
+
+    const secs = parseFlexibleTimeToSeconds(raw);
+    if (secs === null) return;
+
+    // If this row is now meaningfully filled, ensure there's one extra blank row.
+    appendManualBlankRow();
+  }, 150);
+}
 
 function syncLapTimesFromManualTable(showErrors = false) {
   if (!isManualMode) return true;
 
   const inputs = Array.from(lapTableBody.querySelectorAll("input.manual-time-input"));
   const secs = [];
-  let seenBlank = false;
+
+  // We allow trailing blank rows. But we do NOT allow blanks in the middle
+  // followed by later filled rows (that's a "skip").
+  let hitBlank = false;
+  let anyAfterBlank = false;
 
   for (let i = 0; i < inputs.length; i++) {
-    const v = inputs[i].value.trim();
+    const raw = inputs[i].value.trim();
 
-    if (!v) {
-      // once blank, everything after should be blank (keeps a clean "add new row" UX)
-      seenBlank = true;
+    if (!raw) {
+      hitBlank = true;
       continue;
     }
 
-    if (seenBlank) {
+    if (hitBlank) {
+      anyAfterBlank = true;
+    }
+
+    const t = parseFlexibleTimeToSeconds(raw);
+    if (t === null) {
       if (showErrors) {
-        lapErrorDiv.textContent = "Manual entry error: please fill laps in order without skipping rows.";
+        lapErrorDiv.textContent = `Manual entry error on lap ${i + 1}: "${raw}". Examples: :37, 1:40, 02:15.`;
       }
       return false;
     }
 
-    const t = parseFlexibleTimeToSeconds(v);
-    if (t === null) {
-      if (showErrors) { lapErrorDiv.textContent = `Manual entry error on lap ${i + 1}: "${v}". Examples: :37, 1:40, 2:15.`; }
-      return false;
-    }
+    // Normalize value for the user (mm:ss)
+    inputs[i].value = formatTimeMMSS(t);
 
+    // Enforce strictly increasing cumulative times
     if (secs.length > 0 && t <= secs[secs.length - 1]) {
-      if (showErrors) { lapErrorDiv.textContent = `Manual entry error on lap ${i + 1}: times must be strictly increasing.`; }
+      if (showErrors) {
+        lapErrorDiv.textContent = `Manual entry error on lap ${i + 1}: times must be strictly increasing.`;
+      }
       return false;
     }
 
     secs.push(t);
   }
 
-  if (showErrors) { lapErrorDiv.textContent = ""; }
-  lapTimes = secs;
+  if (anyAfterBlank) {
+    if (showErrors) {
+      lapErrorDiv.textContent = "Manual entry error: please fill laps in order without skipping rows.";
+    }
+    return false;
+  }
 
+  if (showErrors) {
+    lapErrorDiv.textContent = "";
+  }
+
+  lapTimes = secs;
   return true;
 }
 
 function setManualMode(on) {
   isManualMode = !!on;
+
+  // Update header text
+  if (stopwatchTitleEl) {
+    stopwatchTitleEl.textContent = isManualMode ? "Lap recorder" : "Stopwatch and lap recorder";
+  }
 
   // If switching on, stop the stopwatch so we don't mix modes
   if (isManualMode && stopwatchRunning) {
@@ -494,7 +589,6 @@ function setManualMode(on) {
   }
 
   setLapHeaderForMode();
-  setStopwatchTitleForMode();
   renderLapTable();
 }
 
@@ -558,7 +652,7 @@ function padRight(text, width) {
 
 function calculate() {
   // Clear previous errors
-  if (showErrors) { lapErrorDiv.textContent = ""; }
+  lapErrorDiv.textContent = "";
   minuteErrorDiv.textContent = "";
 
   if (isManualMode) {
@@ -691,7 +785,7 @@ function calculate() {
  */
 function clearResults() {
   resultsBox.textContent = "Per-minute results will appear here.";
-  if (showErrors) { lapErrorDiv.textContent = ""; }
+  lapErrorDiv.textContent = "";
   minuteErrorDiv.textContent = "";
 }
 
