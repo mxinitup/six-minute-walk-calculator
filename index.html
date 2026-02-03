@@ -42,6 +42,26 @@
           <button id="resetButton" class="secondary" disabled>Reset</button>
         </div>
 
+        <!-- Manual entry toggle + textarea (hidden unless enabled) -->
+        <div class="mode-row">
+          <label class="mode-toggle">
+            <input type="checkbox" id="manualModeToggle" />
+            <span>Manual lap times</span>
+          </label>
+        </div>
+
+        <div id="manualEntry" class="manual-entry hidden">
+          <div class="small-text" style="margin-bottom:0.4rem;">
+            Paste cumulative lap times (mm:ss.s), one per line:
+          </div>
+          <textarea
+            id="manualLapTimes"
+            rows="6"
+            placeholder="00:32.1&#10;01:04.8&#10;01:36.0"
+          ></textarea>
+          <div class="small-text">Example format: 02:15.3 (minutes:seconds.tenths)</div>
+        </div>
+
         <div class="minute-grid-wrapper">
           <table class="minute-grid" id="lapTable">
             <thead>
