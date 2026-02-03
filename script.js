@@ -391,8 +391,8 @@ function renderLapTable() {
 /* =========================
    Manual mode helpers (table-based cumulative lap times)
    ========================= */
- (table-based cumulative lap times)
-   ========================= */
+// (table-based cumulative lap times)
+// =========================
 
 function syncLapTimesFromManualTable() {
   // This function used to live-validate on each keystroke.
@@ -524,7 +524,6 @@ function setManualMode(on) {
 
 /* =========================
    Per-minute distance calculation helpers
-   ========================= */ calculation helpers
    ========================= */
 
 // The track is 25 m out, 25 m back => one complete lap is 50 m.
@@ -560,9 +559,8 @@ function positionToOffsetWithinLap(posM, direction) {
   if (dir === "out") {
     return posM;
   } else if (dir === "back") {
-    // If the subject is walking "back" and the sticky note position is 0,
-    // they are at the start line (end of a lap). In that case the within-lap
-    // offset should be 0, not 50, otherwise we double-count a full lap.
+    // Treat 0 as the start line regardless of direction.
+    // Without this, (back, 0) would become 50 m and double-count a full lap.
     if (posM === 0) return 0;
     return LAP_LENGTH_M - posM;
   }
@@ -717,8 +715,20 @@ function calculate() {
   lines.push(`Total distance (m): ${totalDistanceAll.toFixed(2)}`);
   lines.push(`Total laps: ${totalLapsAll.toFixed(3)}`);
 
-  resultsBox.textContent = lines.join("
-");
+  resultsBox.textContent = lines.join("\n");
+}
+
+function clearResults() {
+  minuteErrorDiv.textContent = "";
+  lapErrorDiv.textContent = "";
+  resultsBox.textContent = "Per-minute results will appear here.";
+}
+
+/** Clear only the results text and related errors (keeps inputs). */
+function clearResults() {
+  lapErrorDiv.textContent = "";
+  minuteErrorDiv.textContent = "";
+  resultsBox.textContent = "Per-minute results will appear here.";
 }
 
 /**
@@ -756,6 +766,17 @@ function clearAll() {
 if (manualModeToggle) {
   manualModeToggle.addEventListener("change", () => {
     setManualMode(manualModeToggle.checked);
+  });
+}
+
+// Manual "Add row" button
+if (addRowButton) {
+  addRowButton.addEventListener("click", () => {
+    if (!isManualMode) return;
+    manualRowCount += 1;
+    renderLapTable();
+    const inputs = Array.from(lapTableBody.querySelectorAll("input.manual-time-input"));
+    if (inputs.length) inputs[inputs.length - 1].focus();
   });
 }
 
