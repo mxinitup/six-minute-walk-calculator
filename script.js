@@ -489,7 +489,6 @@ function calculate() {
       return;
     }
   }
-  }
 
   // Results are always written here
   const lines = [];
