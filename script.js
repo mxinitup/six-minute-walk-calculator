@@ -361,48 +361,63 @@ function renderLapTable() {
     return;
   }
 
-  // Manual mode: render input rows (one extra blank row at the end)
+  // Manual mode: render input rows (one extra blank row at the end).
+  // IMPORTANT UX: we do NOT auto-add rows while the user is actively typing,
+  // because re-rendering/focusing can steal the cursor and makes phone entry painful.
   const values = lapTimes.map((t) => formatTimeMMSS(t));
   const rowCount = Math.max(1, values.length + 1);
 
   for (let i = 0; i < rowCount; i++) {
-    const tr = document.createElement("tr");
-    const tdLap = document.createElement("td");
-    const tdTime = document.createElement("td");
-
-    tdLap.textContent = i + 1;
-
-    const input = document.createElement("input");
-    input.type = "text";
-    input.inputMode = "text";
-    input.autocomplete = "off";
-    input.autocapitalize = "off";
-    input.spellcheck = false;
-    input.placeholder = "mm:ss";
-    input.className = "manual-time-input";
-    input.value = values[i] || "";
-    input.dataset.index = String(i);
-
-    input.addEventListener("input", () => {
-      // Don't show validation errors while the user is typing
-      lapErrorDiv.textContent = "";
-      syncLapTimesFromManualTable(false);
-    });
-
-    // On blur, normalize whatever they typed into mm:ss (without being picky while typing)
-    input.addEventListener("blur", () => {
-      const normalized = normalizeManualTimeInputToMMSS(input.value);
-      if (normalized) {
-        input.value = normalized;
-      }
-      syncLapTimesFromManualTable(false);
-    });
-
-    tdTime.appendChild(input);
-    tr.appendChild(tdLap);
-    tr.appendChild(tdTime);
-    lapTableBody.appendChild(tr);
+    appendManualRow(i, values[i] || "");
   }
+}
+
+/** Create/append a single manual row (0-based index) with consistent listeners. */
+function appendManualRow(index, value) {
+  const tr = document.createElement("tr");
+  const tdLap = document.createElement("td");
+  const tdTime = document.createElement("td");
+
+  tdLap.textContent = index + 1;
+
+  const input = document.createElement("input");
+  input.type = "text";
+  input.inputMode = "text";
+  input.autocomplete = "off";
+  input.autocapitalize = "off";
+  input.spellcheck = false;
+  input.placeholder = "mm:ss";
+  input.className = "manual-time-input";
+  input.value = value;
+  input.dataset.index = String(index);
+
+  // While typing: keep silent, and NEVER add rows.
+  input.addEventListener("input", () => {
+    lapErrorDiv.textContent = "";
+    syncLapTimesFromManualTable(false);
+  });
+
+  // On blur: normalize and (if needed) add exactly one new blank row.
+  input.addEventListener("blur", () => {
+    const normalized = normalizeManualTimeInputToMMSS(input.value);
+    if (normalized) input.value = normalized;
+
+    const ok = syncLapTimesFromManualTable(false);
+    if (!ok) return;
+
+    // If the user just filled the last row, append a new blank row.
+    // Do NOT change focus (prevents the "jump to next row" problem).
+    const inputs = Array.from(lapTableBody.querySelectorAll("input.manual-time-input"));
+    const isLast = inputs.length > 0 && inputs[inputs.length - 1] === input;
+    if (isLast && input.value.trim()) {
+      appendManualRow(inputs.length, "");
+    }
+  });
+
+  tdTime.appendChild(input);
+  tr.appendChild(tdLap);
+  tr.appendChild(tdTime);
+  lapTableBody.appendChild(tr);
 }
 
 /* =========================
@@ -427,7 +442,7 @@ function syncLapTimesFromManualTable(showErrors = false) {
 
     if (seenBlank) {
       if (showErrors) {
-        if (showErrors) { lapErrorDiv.textContent = "Manual entry error: please fill laps in order without skipping rows."; }
+        lapErrorDiv.textContent = "Manual entry error: please fill laps in order without skipping rows.";
       }
       return false;
     }
@@ -448,16 +463,6 @@ function syncLapTimesFromManualTable(showErrors = false) {
 
   if (showErrors) { lapErrorDiv.textContent = ""; }
   lapTimes = secs;
-
-  // Auto-add a new blank row when the last row is filled
-  const lastInput = inputs[inputs.length - 1];
-  if (lastInput && lastInput.value.trim()) {
-    renderLapTable();
-    // Focus stays reasonable: keep focus on the newly added last blank row
-    const newInputs = Array.from(lapTableBody.querySelectorAll("input.manual-time-input"));
-    const next = newInputs[newInputs.length - 1];
-    if (next) next.focus();
-  }
 
   return true;
 }
