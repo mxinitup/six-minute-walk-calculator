@@ -23,6 +23,8 @@ let animationFrameId = null;    // id from requestAnimationFrame
 // Lap data is now stored as numbers in seconds.
 // In Original_index.html the user typed lap times into a textarea and they were parsed from text.
 let lapTimes = [];
+let manualEntries = []; // manual mode cumulative times as strings (one per lap)
+
 
 // DOM elements for the stopwatch and lap table
 const toggleButton = document.getElementById("toggleButton");
@@ -304,13 +306,8 @@ function renderLapTable() {
     return;
   }
 
-
-  // Manual mode: render input rows (one extra blank row at the end)
-  // Use manualLapValues so rerenders (e.g., adding a row) don't erase what you've typed.
-  if (manualLapValues.length === 0 && lapTimes.length > 0) {
-    manualLapValues = lapTimes.map((t) => formatTimeMMSS(t));
-  }
-  const rowCount = Math.max(manualRowCount, manualLapValues.length + 1);
+  // Manual mode: render input rows (preserve typed values; always one trailing blank row)
+  const rowCount = Math.max(1, manualEntries.length + 1);
 
   for (let i = 0; i < rowCount; i++) {
     const tr = document.createElement("tr");
@@ -321,38 +318,68 @@ function renderLapTable() {
 
     const input = document.createElement("input");
     input.type = "text";
-    input.inputMode = "text";            // full keyboard (needs ':')
+    input.inputMode = "text"; // full keyboard (needs ':')
     input.autocapitalize = "off";
     input.autocomplete = "off";
     input.spellcheck = false;
     input.enterKeyHint = "next";
     input.placeholder = "mm:ss";
     input.className = "manual-time-input";
-    input.value = manualLapValues[i] || "";
+    input.value = manualEntries[i] || "";
     input.dataset.index = String(i);
 
-    // Keep the backing array in sync as the user types (prevents wipe on rerender).
+    // Don't show errors while typing. Just store text.
     input.addEventListener("input", () => {
-      manualLapValues[i] = input.value;
+      const idx = Number(input.dataset.index);
+      // Keep manualEntries in sync with what's typed (including partial)
+      if (Number.isFinite(idx)) {
+        manualEntries[idx] = input.value;
+      }
+
+      // If user is filling the last row and it becomes parseable, append a new blank row
+      // WITHOUT rerendering (prevents wiping + focus jumps on mobile).
+      if (idx === manualEntries.length - 1 || idx === manualEntries.length) {
+        maybeAppendBlankManualRow(input);
+      }
     });
 
-    // Normalize on blur (don’t nag while typing)
+    // Normalize on blur (but don't force adding extra clicks)
     input.addEventListener("blur", () => {
       const v = input.value.trim();
       if (!v) return;
 
       const sec = parseTimeFlexibleToSeconds(v);
-      if (sec === null) return; // leave as-is; calculate() will catch it if needed
-      input.value = formatTimeMMSS(sec);
-      manualLapValues[i] = input.value;
+      if (sec === null) return; // leave as-is; calculate() will catch it
+      const normalized = formatTimeMMSS(sec);
+      input.value = normalized;
+
+      const idx = Number(input.dataset.index);
+      if (Number.isFinite(idx)) manualEntries[idx] = normalized;
+
+      // On blur, if this was the last row and now valid, ensure a trailing blank exists
+      maybeAppendBlankManualRow(input);
     });
 
-    // Enter/Done -> add a row if needed, then focus next
+    // Enter -> move to next row; create it if needed
     input.addEventListener("keydown", (e) => {
       if (e.key !== "Enter") return;
       e.preventDefault();
-      manualLapValues[i] = input.value;
-      maybeAddManualRowFromIndex(i);
+
+      const idx = Number(input.dataset.index);
+      // Normalize on enter if possible
+      const v = input.value.trim();
+      if (v) {
+        const sec = parseTimeFlexibleToSeconds(v);
+        if (sec !== null) {
+          const normalized = formatTimeMMSS(sec);
+          input.value = normalized;
+          if (Number.isFinite(idx)) manualEntries[idx] = normalized;
+        }
+      }
+
+      // Ensure at least one trailing blank row, then focus next
+      maybeAppendBlankManualRow(input);
+      focusManualRow(idx + 1);
     });
 
     tdTime.appendChild(input);
@@ -366,57 +393,100 @@ function renderLapTable() {
    Manual mode helpers (table-based cumulative lap times)
    ========================= */
 
-function syncLapTimesFromManualTable() {
-  if (!isManualMode) return true;
+function syncLapTimesFromManualTable() { return true; }
 
+
+
+function focusManualRow(index) {
   const inputs = Array.from(lapTableBody.querySelectorAll("input.manual-time-input"));
-  const secs = [];
-  let seenBlank = false;
-
-  for (let i = 0; i < inputs.length; i++) {
-    const v = inputs[i].value.trim();
-
-    if (!v) {
-      // once blank, everything after should be blank (keeps a clean "add new row" UX)
-      seenBlank = true;
-      continue;
-    }
-
-    if (seenBlank) {
-      lapErrorDiv.textContent = "Manual entry error: please fill laps in order without skipping rows.";
-      return false;
-    }
-
-    const t = parseTimeMMSS(v);
-    if (t === null) {
-      lapErrorDiv.textContent = `Manual entry error on lap ${i + 1}: "${v}". Use mm:ss (e.g., 02:15).`;
-      return false;
-    }
-
-    if (secs.length > 0 && t <= secs[secs.length - 1]) {
-      lapErrorDiv.textContent = `Manual entry error on lap ${i + 1}: times must be strictly increasing.`;
-      return false;
-    }
-
-    secs.push(t);
-  }
-
-  lapErrorDiv.textContent = "";
-  lapTimes = secs;
-
-  // Auto-add a new blank row when the last row is filled
-  const lastInput = inputs[inputs.length - 1];
-  if (lastInput && lastInput.value.trim()) {
-    renderLapTable();
-    // Focus stays reasonable: keep focus on the newly added last blank row
-    const newInputs = Array.from(lapTableBody.querySelectorAll("input.manual-time-input"));
-    const next = newInputs[newInputs.length - 1];
-    if (next) next.focus();
-  }
-
-  return true;
+  const target = inputs.find((el) => Number(el.dataset.index) === index);
+  if (target) target.focus();
 }
 
+function maybeAppendBlankManualRow(currentInput) {
+  if (!isManualMode) return;
+
+  const idx = Number(currentInput.dataset.index);
+  const trimmed = currentInput.value.trim();
+  if (!trimmed) return;
+
+  const sec = parseTimeFlexibleToSeconds(trimmed);
+  if (sec === null) return;
+
+  // Only append once for a given row
+  if (currentInput.dataset.added === "1") return;
+
+  // If this is the last rendered row (or effectively last typed row), append a new blank row.
+  const inputs = Array.from(lapTableBody.querySelectorAll("input.manual-time-input"));
+  const maxIdx = Math.max(...inputs.map((el) => Number(el.dataset.index)));
+
+  if (idx === maxIdx) {
+    currentInput.dataset.added = "1";
+
+    // Ensure manualEntries has this index
+    manualEntries[idx] = currentInput.value;
+
+    // Append a new blank row DOM-only (no rerender => no wipe)
+    const tr = document.createElement("tr");
+    const tdLap = document.createElement("td");
+    const tdTime = document.createElement("td");
+
+    tdLap.textContent = String(maxIdx + 2);
+
+    const input = document.createElement("input");
+    input.type = "text";
+    input.inputMode = "text";
+    input.autocapitalize = "off";
+    input.autocomplete = "off";
+    input.spellcheck = false;
+    input.enterKeyHint = "next";
+    input.placeholder = "mm:ss";
+    input.className = "manual-time-input";
+    input.value = "";
+    input.dataset.index = String(maxIdx + 1);
+
+    input.addEventListener("input", () => {
+      const i = Number(input.dataset.index);
+      manualEntries[i] = input.value;
+      if (i === manualEntries.length - 1 || i === manualEntries.length) {
+        maybeAppendBlankManualRow(input);
+      }
+    });
+
+    input.addEventListener("blur", () => {
+      const v = input.value.trim();
+      if (!v) return;
+      const sec2 = parseTimeFlexibleToSeconds(v);
+      if (sec2 === null) return;
+      const normalized = formatTimeMMSS(sec2);
+      input.value = normalized;
+      const i = Number(input.dataset.index);
+      manualEntries[i] = normalized;
+      maybeAppendBlankManualRow(input);
+    });
+
+    input.addEventListener("keydown", (e) => {
+      if (e.key !== "Enter") return;
+      e.preventDefault();
+      const v = input.value.trim();
+      if (v) {
+        const sec2 = parseTimeFlexibleToSeconds(v);
+        if (sec2 !== null) {
+          const normalized = formatTimeMMSS(sec2);
+          input.value = normalized;
+          manualEntries[Number(input.dataset.index)] = normalized;
+        }
+      }
+      maybeAppendBlankManualRow(input);
+      focusManualRow(Number(input.dataset.index) + 1);
+    });
+
+    tdTime.appendChild(input);
+    tr.appendChild(tdLap);
+    tr.appendChild(tdTime);
+    lapTableBody.appendChild(tr);
+  }
+}
 function setManualMode(on) {
   isManualMode = !!on;
 
