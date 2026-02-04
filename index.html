@@ -32,34 +32,30 @@
     <div class="layout-two">
       <!-- STOPWATCH CARD -->
       <div class="card">
-        <h2>Stopwatch and lap recorder</h2>
+        <div class="card-title-row">
+          <h2 id="stopwatchTitle">Stopwatch and lap recorder</h2>
 
-        <div class="timer-display" id="timerDisplay">00:00.0</div>
-
-        <div class="button-row">
-          <button id="toggleButton">Start</button>
-          <button id="lapButton" disabled>Lap</button>
-          <button id="resetButton" class="secondary" disabled>Reset</button>
-        </div>
-
-        <!-- Manual entry toggle + textarea (hidden unless enabled) -->
-        <div class="mode-row">
-          <label class="mode-toggle">
-            <input type="checkbox" id="manualModeToggle" />
-            <span>Manual lap times</span>
-          </label>
-        </div>
-
-        <div id="manualEntry" class="manual-entry hidden">
-          <div class="small-text" style="margin-bottom:0.4rem;">
-            Paste cumulative lap times (mm:ss.s), one per line:
+          <div class="toggle-inline" aria-label="Manual cumulative lap time entry">
+            <span class="toggle-text">Manual</span>
+            <label class="switch">
+              <input type="checkbox" id="manualModeToggle" />
+              <span class="slider"></span>
+            </label>
           </div>
-          <textarea
-            id="manualLapTimes"
-            rows="6"
-            placeholder="00:32.1&#10;01:04.8&#10;01:36.0"
-          ></textarea>
-          <div class="small-text">Example format: 02:15.3 (minutes:seconds.tenths)</div>
+        </div>
+
+        <div id="stopwatchControls">
+          <div class="timer-display" id="timerDisplay">00:00.0</div>
+
+          <div class="button-row">
+            <button id="toggleButton">Start</button>
+            <button id="lapButton" disabled>Lap</button>
+            <button id="resetButton" class="secondary" disabled>Reset</button>
+          </div>
+        </div>
+
+        <div id="manualHint" class="small-text hidden">
+          Enter cumulative lap times from your stopwatch (mm:ss). Rows auto-add as you type.
         </div>
 
         <div class="minute-grid-wrapper">
@@ -67,7 +63,7 @@
             <thead>
               <tr>
                 <th>Lap #</th>
-                <th>Time (mm:ss.s)</th>
+                <th id="lapTimeHeader">Time (mm:ss.s)</th>
               </tr>
             </thead>
             <tbody id="lapTableBody"></tbody>
