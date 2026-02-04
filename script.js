@@ -37,9 +37,16 @@ const stopwatchControlsEl = document.getElementById("stopwatchControls");
 const manualHintEl = document.getElementById("manualHint");
 const lapTimeHeaderEl = document.getElementById("lapTimeHeader");
 const stopwatchTitleEl = document.getElementById("stopwatchTitle");
+const manualRowControlsEl = document.getElementById("manualRowControls");
+const addRowButton = document.getElementById("addRowButton");
 
 let isManualMode = false;
-let manualRowCount = 8; // how many rows to show in manual mode
+// Manual mode keeps its own editable values so re-rendering the table
+// (e.g., when adding rows) does NOT wipe what the user already typed.
+let manualLapValues = [""]; // array of strings (mm:ss) per row
+
+// Back-compat variable used by some helper logic; keep it in sync with manualLapValues.length.
+let manualRowCount = manualLapValues.length;
 
 
 // Shared error and results elements. Some of these existed in Original_index.html already.
@@ -68,56 +75,42 @@ function formatTimeSeconds(seconds) {
  * Format seconds as mm:ss (no tenths). Used for Manual mode table inputs.
  */
 function formatTimeMMSS(seconds) {
-  // Manual mode display: keep minutes/seconds as 2 digits.
-  // If the user provided tenths, keep 1 decimal place; otherwise show mm:ss.
-  const safe = Math.max(0, seconds);
-  const whole = Math.floor(safe);
-  const frac = safe - whole;
-
+  const whole = Math.max(0, Math.round(seconds)); // nearest second
   const minutes = Math.floor(whole / 60);
   const secs = whole % 60;
-
   const mm = String(minutes).padStart(2, "0");
   const ss = String(secs).padStart(2, "0");
-
-  const hasTenths = frac >= 0.05; // treat ~0.1s as tenths
-  if (!hasTenths) return `${mm}:${ss}`;
-
-  const tenths = Math.floor(frac * 10 + 1e-9);
-  return `${mm}:${ss}.${tenths}`;
+  return `${mm}:${ss}`;
 }
-
 
 function parseTimeFlexibleToSeconds(str) {
   const raw = String(str || "").trim();
   if (!raw) return null;
 
   // Accept formats like:
-  //  37        -> 0:37
-  //  37.5      -> 0:37.5
-  //  1:4       -> 1:04
-  //  1:15      -> 1:15
-  //  1:15.3    -> 1:15.3
-  //  2:75      -> 3:15 (carry seconds)
-  //  2:75.6    -> 3:15.6
-  const m = raw.match(/^\s*(?:(\d+)\s*:\s*)?(\d+)(?:\.(\d))?\s*$/);
+  //  :37   -> 0:37
+  //  37    -> 0:37
+  //  1:4   -> 1:04
+  //  1:40  -> 1:40
+  //  2:75  -> 3:15 (carry seconds)
+  const m = raw.match(/^\s*(?:(\d+)\s*:\s*)?(\d+)?\s*$/);
   if (!m) return null;
 
   let minutes = m[1] ? parseInt(m[1], 10) : 0;
-  let secondsInt = parseInt(m[2], 10);
-  const tenths = m[3] !== undefined ? parseInt(m[3], 10) : null;
+  let secondsPart = m[2];
 
-  if (Number.isNaN(minutes) || Number.isNaN(secondsInt)) return null;
-  if (tenths !== null && Number.isNaN(tenths)) return null;
+  // Special case: user typed just ":" or "1:" (seconds missing) -> treat as incomplete
+  if (raw.includes(":") && (secondsPart === undefined || secondsPart === "")) return null;
+
+  if (secondsPart === undefined || secondsPart === "") return null;
+  let seconds = parseInt(secondsPart, 10);
+  if (Number.isNaN(minutes) || Number.isNaN(seconds)) return null;
 
   // Carry seconds overflow into minutes
-  minutes += Math.floor(secondsInt / 60);
-  secondsInt = secondsInt % 60;
+  minutes += Math.floor(seconds / 60);
+  seconds = seconds % 60;
 
-  let total = minutes * 60 + secondsInt;
-  if (tenths !== null) total += tenths / 10;
-
-  return total;
+  return minutes * 60 + seconds;
 }
 
 
@@ -276,6 +269,8 @@ function resetTimer() {
     manualModeToggle.checked = false;
   }
   isManualMode = false;
+  manualLapValues = [""];
+  manualRowCount = manualLapValues.length;
   // Sync the UI back to stopwatch mode
   setManualMode(false);
   // Clear stopwatch-related errors and keep the minute error/result untouched
@@ -352,9 +347,15 @@ function renderLapTable() {
     return;
   }
 
-  // Manual mode: render editable rows (fixed count + trailing blanks allowed)
-  const preset = lapTimes.map((t) => formatTimeMMSS(t));
-  const rowCount = Math.max(manualRowCount, preset.length + 1);
+  // Manual mode: render editable rows.
+  // IMPORTANT: Use manualLapValues (not lapTimes) so re-rendering doesn't wipe typed input.
+  // Always keep at least 1 blank row at the end.
+  manualRowCount = Math.max(1, manualLapValues.length);
+  if (manualLapValues.length === 0) manualLapValues = [""];
+  if (manualLapValues[manualLapValues.length - 1].trim() !== "") {
+    manualLapValues.push("");
+  }
+  const rowCount = manualLapValues.length;
 
   for (let i = 0; i < rowCount; i++) {
     const tr = document.createElement("tr");
@@ -372,8 +373,13 @@ function renderLapTable() {
     input.enterKeyHint = "next";
     input.placeholder = "mm:ss";
     input.className = "manual-time-input";
-    input.value = preset[i] || "";
+    input.value = manualLapValues[i] || "";
     input.dataset.index = String(i);
+
+    // Keep manualLapValues up-to-date as the user types.
+    input.addEventListener("input", () => {
+      manualLapValues[i] = input.value;
+    });
 
     // Normalize on blur (don’t nag while typing)
     input.addEventListener("blur", () => {
@@ -382,7 +388,14 @@ function renderLapTable() {
 
       const sec = parseTimeFlexibleToSeconds(v);
       if (sec === null) return; // leave as-is; calculate() will catch it if needed
-      input.value = formatTimeMMSS(sec);
+      const normalized = formatTimeMMSS(sec);
+      input.value = normalized;
+      manualLapValues[i] = normalized;
+
+      // If they just finished the last non-blank row, auto-add a new blank row.
+      if (i === manualLapValues.length - 2) {
+        maybeAddManualRowFromIndex(i);
+      }
     });
 
     // Enter/Done -> add a row if needed, then focus next
@@ -418,31 +431,36 @@ function maybeAddManualRowFromIndex(index) {
   const inputs = Array.from(lapTableBody.querySelectorAll("input.manual-time-input"));
   const isLast = index >= inputs.length - 1;
 
-  // Only add a row if the current row has something parseable
+  // Only add a row if the current row has something parseable.
+  // Also normalize the entry to keep formatting consistent (e.g., 37 -> 00:37, 1:15 -> 01:15).
   const v = (inputs[index]?.value || "").trim();
   const sec = parseTimeFlexibleToSeconds(v);
-  if (sec === null) {
+  if (!sec && sec !== 0) {
     // still move focus forward if possible
     if (inputs[index + 1]) inputs[index + 1].focus();
     return;
   }
 
-
-  // Normalize the current cell once it looks valid
+  // Normalize the currently-entered value in-place.
   const normalized = formatTimeMMSS(sec);
-  if (inputs[index]) inputs[index].value = normalized;
+  inputs[index].value = normalized;
   manualLapValues[index] = normalized;
 
   if (isLast) {
-    manualRowCount += 1;
+    // Persist (defensive) then add a new blank row.
+    manualLapValues[index] = normalized;
+    manualLapValues.push("");
+    manualRowCount = manualLapValues.length;
+
     renderLapTable();
 
     // focus the next row that was just added
     const newInputs = Array.from(lapTableBody.querySelectorAll("input.manual-time-input"));
     if (newInputs[index + 1]) newInputs[index + 1].focus();
-  } else {
-    if (inputs[index + 1]) inputs[index + 1].focus();
+    return;
   }
+
+  if (inputs[index + 1]) inputs[index + 1].focus();
 }
 
 /**
@@ -516,17 +534,20 @@ function setManualMode(on) {
   if (manualHintEl) {
     manualHintEl.classList.toggle("hidden", !isManualMode);
   }
+  if (manualRowControlsEl) {
+    manualRowControlsEl.classList.toggle("hidden", !isManualMode);
+  }
 
   // Keep safety: disable lap recording when manual mode is enabled
   lapButton.disabled = isManualMode || !stopwatchRunning;
 
   if (isManualMode) {
-    // Start minimalist: 1 blank row, or carry over any existing stopwatch laps.
-    if (lapTimes.length > 0) {
-      manualLapValues = lapTimes.map((t) => formatTimeMMSS(t));
-    } else {
-      manualLapValues = [""];
-    }
+    // Start minimalist:
+    // - If there are recorded laps in stopwatch mode, carry them over.
+    // - Otherwise start with a single blank row.
+    manualLapValues = lapTimes.length
+      ? lapTimes.map((t) => formatTimeMMSS(t))
+      : [""];
     manualRowCount = manualLapValues.length;
     toggleButton.disabled = true;
   } else {
@@ -786,6 +807,20 @@ function clearAll() {
 if (manualModeToggle) {
   manualModeToggle.addEventListener("change", () => {
     setManualMode(manualModeToggle.checked);
+  });
+}
+
+// Manual "Add row" button
+if (addRowButton) {
+  addRowButton.addEventListener("click", () => {
+    if (!isManualMode) return;
+    // Add a blank row at the end (preserve anything already typed).
+    if (manualLapValues.length === 0) manualLapValues = [""];
+    manualLapValues.push("");
+    manualRowCount = manualLapValues.length;
+    renderLapTable();
+    const inputs = Array.from(lapTableBody.querySelectorAll("input.manual-time-input"));
+    if (inputs.length) inputs[inputs.length - 1].focus();
   });
 }
 
