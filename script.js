@@ -31,19 +31,18 @@ const resetButton = document.getElementById("resetButton");
 const timerDisplayEl = document.getElementById("timerDisplay");
 const lapTableBody = document.getElementById("lapTableBody");
 
-// Manual mode elements (table-based cumulative entry)
+// Manual mode (switch-style toggle)
 const manualModeToggle = document.getElementById("manualModeToggle");
+const stopwatchControlsEl = document.getElementById("stopwatchControls");
+const manualHintEl = document.getElementById("manualHint");
+const lapTimeHeaderEl = document.getElementById("lapTimeHeader");
 const stopwatchTitleEl = document.getElementById("stopwatchTitle");
-const stopwatchLiveArea = document.getElementById("stopwatchLiveArea");
-const liveLapTableArea = document.getElementById("liveLapTableArea");
-const manualLapArea = document.getElementById("manualLapArea");
-const manualLapTableBody = document.getElementById("manualLapTableBody");
-const manualClearLapsBtn = document.getElementById("manualClearLaps");
-
-// Manual entry state (each row is one cumulative lap time)
-let manualLapInputs = []; // array of <input> elements in order
+const manualRowControlsEl = document.getElementById("manualRowControls");
+const addRowButton = document.getElementById("addRowButton");
 
 let isManualMode = false;
+let manualRowCount = 8; // how many rows to show in manual mode
+
 
 // Shared error and results elements. Some of these existed in Original_index.html already.
 const lapErrorDiv = document.getElementById("lapError");
@@ -66,9 +65,77 @@ function formatTimeSeconds(seconds) {
   return `${mm}:${ss}.${tenths}`;
 }
 
+
+/**
+ * Format seconds as mm:ss (no tenths). Used for Manual mode table inputs.
+ */
+function formatTimeMMSS(seconds) {
+  const whole = Math.max(0, Math.round(seconds)); // nearest second
+  const minutes = Math.floor(whole / 60);
+  const secs = whole % 60;
+  const mm = String(minutes).padStart(2, "0");
+  const ss = String(secs).padStart(2, "0");
+  return `${mm}:${ss}`;
+}
+
+function parseTimeFlexibleToSeconds(str) {
+  const raw = String(str || "").trim();
+  if (!raw) return null;
+
+  // Accept formats like:
+  //  :37   -> 0:37
+  //  37    -> 0:37
+  //  1:4   -> 1:04
+  //  1:40  -> 1:40
+  //  2:75  -> 3:15 (carry seconds)
+  const m = raw.match(/^\s*(?:(\d+)\s*:\s*)?(\d+)?\s*$/);
+  if (!m) return null;
+
+  let minutes = m[1] ? parseInt(m[1], 10) : 0;
+  let secondsPart = m[2];
+
+  // Special case: user typed just ":" or "1:" (seconds missing) -> treat as incomplete
+  if (raw.includes(":") && (secondsPart === undefined || secondsPart === "")) return null;
+
+  if (secondsPart === undefined || secondsPart === "") return null;
+  let seconds = parseInt(secondsPart, 10);
+  if (Number.isNaN(minutes) || Number.isNaN(seconds)) return null;
+
+  // Carry seconds overflow into minutes
+  minutes += Math.floor(seconds / 60);
+  seconds = seconds % 60;
+
+  return minutes * 60 + seconds;
+}
+
+
+/**
+ * Parse mm:ss into total seconds (integer). Returns null on invalid input.
+ */
+function parseTimeMMSS(str) {
+  const s = String(str || "").trim();
+  if (!s) return null;
+  const m = s.match(/^(\d+):([0-5]\d)$/);
+  if (!m) return null;
+  const minutes = parseInt(m[1], 10);
+  const seconds = parseInt(m[2], 10);
+  return minutes * 60 + seconds;
+}
+
+function setLapHeaderForMode() {
+  if (!lapTimeHeaderEl) return;
+  lapTimeHeaderEl.textContent = isManualMode ? "Time (mm:ss)" : "Time (mm:ss.s)";
+}
+
 /**
  * Update the on-screen timer display from the current elapsedMs value.
  */
+function getCurrentElapsedMs() {
+  if (!stopwatchRunning) return elapsedMs;
+  if (stopwatchStartTime === null) return elapsedMs;
+  return elapsedMs + (performance.now() - stopwatchStartTime);
+}
+
 function updateTimerDisplay() {
   const sec = elapsedMs / 1000;
   timerDisplayEl.textContent = formatTimeSeconds(sec);
@@ -80,23 +147,23 @@ function updateTimerDisplay() {
  * requestAnimationFrame gives smoother and more accurate updates.
  */
 function tick(timestamp) {
-  if (!stopwatchRunning) {
-    return;
-  }
+  if (!stopwatchRunning) return;
 
-  // elapsedMs is measured relative to the point in time when the stopwatch was last started
-  const now = performance.now();
-  const diff = now - stopwatchStartTime;
-  const newElapsed = elapsedMs + diff;
+  // timestamp comes from requestAnimationFrame and is comparable to performance.now()
+  if (stopwatchStartTime === null) stopwatchStartTime = timestamp;
 
-  // Clamp at 6 minutes (360000 ms) so that rounding errors do not push you over.
+  const delta = timestamp - stopwatchStartTime;
+  stopwatchStartTime = timestamp;
+
+  elapsedMs += delta;
+
+  // Clamp at 6 minutes (360000 ms) so drift can’t push over.
   const maxMs = 6 * 60 * 1000;
-  if (newElapsed >= maxMs) {
+  if (elapsedMs >= maxMs) {
     elapsedMs = maxMs;
     stopwatchRunning = false;
     updateTimerDisplay();
 
-    // Make sure we cancel the animation frame and update the UI to a finished state.
     if (animationFrameId !== null) {
       cancelAnimationFrame(animationFrameId);
       animationFrameId = null;
@@ -108,10 +175,7 @@ function tick(timestamp) {
     return;
   }
 
-  elapsedMs = newElapsed;
-  stopwatchStartTime = now;
   updateTimerDisplay();
-
   animationFrameId = requestAnimationFrame(tick);
 }
 
@@ -120,12 +184,12 @@ function tick(timestamp) {
  * This is called when the toggleButton goes from "Start" to "Stop".
  */
 function startTimer() {
-  if (stopwatchRunning) {
-    return;
-  }
+  if (stopwatchRunning) return;
 
+  // Reset the frame reference so the first tick starts cleanly
   stopwatchRunning = true;
-  stopwatchStartTime = performance.now();
+  stopwatchStartTime = null;
+
   toggleButton.textContent = "Stop";
   lapButton.disabled = false;
   resetButton.disabled = false;
@@ -134,14 +198,13 @@ function startTimer() {
   animationFrameId = requestAnimationFrame(tick);
 }
 
+
 /**
  * Stop the stopwatch without resetting the elapsed time.
  * This is called when the toggleButton goes from "Stop" to "Start".
  */
 function stopTimer() {
-  if (!stopwatchRunning) {
-    return;
-  }
+  if (!stopwatchRunning) return;
 
   stopwatchRunning = false;
 
@@ -151,22 +214,23 @@ function stopTimer() {
     animationFrameId = null;
   }
 
-  // Update elapsedMs one last time using the current time
-  const now = performance.now();
-  elapsedMs += now - stopwatchStartTime;
-  stopwatchStartTime = now;
-
-  // Clamp at 6 minutes again in case we hit stop very close to 6 minutes
-  const maxMs = 6 * 60 * 1000;
-  if (elapsedMs > maxMs) {
-    elapsedMs = maxMs;
+  // If we stop between frames, add the partial delta up to now
+  if (stopwatchStartTime !== null) {
+    const now = performance.now();
+    elapsedMs += (now - stopwatchStartTime);
+    stopwatchStartTime = now;
   }
+
+  // Clamp at 6 minutes
+  const maxMs = 6 * 60 * 1000;
+  if (elapsedMs > maxMs) elapsedMs = maxMs;
 
   updateTimerDisplay();
 
   toggleButton.textContent = "Start";
   lapButton.disabled = true;
 }
+
 
 /**
  * Reset the stopwatch and lap data to the initial state.
@@ -194,30 +258,14 @@ function resetTimer() {
 
   // Clear lap data and table
   lapTimes = [];
-  lapTableBody.innerHTML = "";
-
-  // Clear manual mode state/inputs and return UI to stopwatch mode
+  renderLapTable();
+  // Clear manual mode state/inputs
   if (manualModeToggle) {
     manualModeToggle.checked = false;
   }
   isManualMode = false;
-  manualLapInputs = [];
-  if (manualLapTableBody) {
-    manualLapTableBody.innerHTML = "";
-  }
-  if (manualLapArea) {
-    manualLapArea.classList.add("hidden");
-  }
-  if (stopwatchLiveArea) {
-    stopwatchLiveArea.classList.remove("hidden");
-  }
-  if (liveLapTableArea) {
-    liveLapTableArea.classList.remove("hidden");
-  }
-  if (stopwatchTitleEl) {
-    stopwatchTitleEl.textContent = "Stopwatch and lap recorder";
-  }
-
+  // Sync the UI back to stopwatch mode
+  setManualMode(false);
   // Clear stopwatch-related errors and keep the minute error/result untouched
   lapErrorDiv.textContent = "";
 }
@@ -243,13 +291,14 @@ function toggleTimer() {
  * used cumulative lap times typed into the textarea.
  */
 function recordLap() {
+  if (isManualMode) {
+    return;
+  }
   if (!stopwatchRunning) {
     return;
   }
 
-  const now = performance.now();
-  const diff = now - stopwatchStartTime;
-  const currentMs = elapsedMs + diff;
+  const currentMs = getCurrentElapsedMs();
   const currentSec = currentMs / 1000;
 
   // Enforce strictly increasing lap times.
@@ -272,233 +321,206 @@ function recordLap() {
  */
 function renderLapTable() {
   lapTableBody.innerHTML = "";
+  setLapHeaderForMode();
 
-  lapTimes.forEach((t, index) => {
+  if (!isManualMode) {
+    // Stopwatch mode: render recorded laps
+    lapTimes.forEach((t, index) => {
+      const tr = document.createElement("tr");
+      const tdLap = document.createElement("td");
+      const tdTime = document.createElement("td");
+
+      tdLap.textContent = index + 1;
+      tdTime.textContent = formatTimeSeconds(t);
+
+      tr.appendChild(tdLap);
+      tr.appendChild(tdTime);
+      lapTableBody.appendChild(tr);
+    });
+    return;
+  }
+
+  // Manual mode: render editable rows (fixed count + trailing blanks allowed)
+  const preset = lapTimes.map((t) => formatTimeMMSS(t));
+  const rowCount = Math.max(manualRowCount, preset.length + 1);
+
+  for (let i = 0; i < rowCount; i++) {
     const tr = document.createElement("tr");
     const tdLap = document.createElement("td");
     const tdTime = document.createElement("td");
 
-    tdLap.textContent = index + 1;
-    tdTime.textContent = formatTimeSeconds(t);
+    tdLap.textContent = i + 1;
 
+    const input = document.createElement("input");
+    input.type = "text";
+    input.inputMode = "text";            // full keyboard (needs ':')
+    input.autocapitalize = "off";
+    input.autocomplete = "off";
+    input.spellcheck = false;
+    input.enterKeyHint = "next";
+    input.placeholder = "mm:ss";
+    input.className = "manual-time-input";
+    input.value = preset[i] || "";
+    input.dataset.index = String(i);
+
+    // Normalize on blur (don’t nag while typing)
+    input.addEventListener("blur", () => {
+      const v = input.value.trim();
+      if (!v) return;
+
+      const sec = parseTimeFlexibleToSeconds(v);
+      if (sec === null) return; // leave as-is; calculate() will catch it if needed
+      input.value = formatTimeMMSS(sec);
+    });
+
+    // Enter/Done -> add a row if needed, then focus next
+    input.addEventListener("keydown", (e) => {
+      if (e.key !== "Enter") return;
+      e.preventDefault();
+      maybeAddManualRowFromIndex(i);
+    });
+
+    tdTime.appendChild(input);
     tr.appendChild(tdLap);
     tr.appendChild(tdTime);
     lapTableBody.appendChild(tr);
-  });
+  }
 }
+
 
 /* =========================
-   Manual lap-time entry helpers (table-based)
+   Manual mode helpers (table-based cumulative lap times)
    ========================= */
+// (table-based cumulative lap times)
+// =========================
 
-function formatMmSs(totalSeconds) {
-  const whole = Math.floor(totalSeconds);
-  const minutes = Math.floor(whole / 60);
-  const secs = whole % 60;
-  return `${String(minutes).padStart(2, "0")}:${String(secs).padStart(2, "0")}`;
-}
-
-/**
- * Parse flexible manual input into seconds.
- * Accepted examples:
- *   ":38"  -> 00:38
- *   "38"   -> 00:38
- *   "1:2"  -> 01:02
- *   "01:02"-> 01:02
- *   "90"   -> 01:30
- */
-function parseFlexibleMmSsToSeconds(raw) {
-  const s = String(raw ?? "").trim();
-  if (s === "") return null;
-
-  // Digits-only => treat as seconds; convert to mm:ss.
-  if (/^\d+$/.test(s)) {
-    const sec = parseInt(s, 10);
-    if (!Number.isFinite(sec) || sec < 0) return null;
-    return sec; // seconds
-  }
-
-  // Colon format => mm:ss where mm may be empty (":38")
-  const m = s.match(/^(\d*):\s*(\d{1,2})$/);
-  if (!m) return null;
-
-  const minutes = m[1] === "" ? 0 : parseInt(m[1], 10);
-  const secs = parseInt(m[2], 10);
-  if (!Number.isFinite(minutes) || !Number.isFinite(secs) || minutes < 0) return null;
-  if (secs < 0) return null;
-
-  // If someone typed 1:75, interpret as total seconds rather than hard-failing.
-  return minutes * 60 + secs;
-}
-
-function clearManualLapTableToSingleRow() {
-  manualLapInputs = [];
-  manualLapTableBody.innerHTML = "";
-  addManualLapRow();
-}
-
-function addManualLapRow() {
-  const lapNum = manualLapInputs.length + 1;
-
-  const tr = document.createElement("tr");
-  const tdLap = document.createElement("td");
-  const tdTime = document.createElement("td");
-  const input = document.createElement("input");
-
-  tdLap.textContent = lapNum;
-
-  input.type = "text";
-  input.inputMode = "numeric";
-  input.autocomplete = "off";
-  input.placeholder = "mm:ss";
-  input.setAttribute("aria-label", `Lap ${lapNum} cumulative time (mm:ss)`);
-
-  input.addEventListener("keydown", (ev) => {
-    if (ev.key !== "Enter") return;
-    ev.preventDefault();
-
-    const ok = syncLapTimesFromManualTable({ normalize: true, allowTrailingEmpty: true });
-    if (!ok) return;
-
-    // Ensure a next row exists and move focus to it.
-    const idx = manualLapInputs.indexOf(input);
-    const nextIdx = idx + 1;
-    if (!manualLapInputs[nextIdx]) {
-      addManualLapRow();
-    }
-    manualLapInputs[nextIdx].focus();
-    manualLapInputs[nextIdx].select();
-  });
-
-  tdTime.appendChild(input);
-  tr.appendChild(tdLap);
-  tr.appendChild(tdTime);
-  manualLapTableBody.appendChild(tr);
-
-  manualLapInputs.push(input);
-  return input;
-}
-
-/**
- * Read the manual lap table and update lapTimes.
- * - Stops at the first empty row (trailing empty rows are allowed).
- * - No gaps allowed (empty row followed by a filled row is an error).
- * - Times must be strictly increasing.
- */
-function syncLapTimesFromManualTable({ normalize, allowTrailingEmpty } = { normalize: true, allowTrailingEmpty: true }) {
-  if (!manualLapInputs || manualLapInputs.length === 0) {
-    lapTimes = [];
-    return true;
-  }
-
-  const parsed = [];
-  let seenEmpty = false;
-
-  for (let i = 0; i < manualLapInputs.length; i++) {
-    const el = manualLapInputs[i];
-    const raw = (el.value ?? "").trim();
-
-    if (raw === "") {
-      seenEmpty = true;
-      continue;
-    }
-
-    if (seenEmpty && !allowTrailingEmpty) {
-      lapErrorDiv.textContent = `Manual entry error: Lap ${i + 1} has a value but an earlier lap is blank.`;
-      return false;
-    }
-
-    const sec = parseFlexibleMmSsToSeconds(raw);
-    if (sec === null) {
-      lapErrorDiv.textContent = `Manual entry error on lap ${i + 1}: "${raw}". Use mm:ss (e.g., :38, 1:02).`;
-      return false;
-    }
-
-    if (parsed.length > 0 && sec <= parsed[parsed.length - 1]) {
-      lapErrorDiv.textContent = `Manual entry error on lap ${i + 1}: times must be strictly increasing.`;
-      return false;
-    }
-
-    parsed.push(sec);
-
-    if (normalize) {
-      el.value = formatMmSs(sec);
-    }
-  }
-
-  // If there was a blank in the middle and later filled rows, it's a gap.
-  // The simple loop above allows it if allowTrailingEmpty=true, so we enforce: once blank seen,
-  // no further filled rows. That means: if any parsed times occurred after an empty row, we'd have
-  // encountered raw=="" then later raw!=""; we can't detect that now without re-checking.
-  // So we do a second pass to enforce no gaps.
-  let foundBlank = false;
-  for (let i = 0; i < manualLapInputs.length; i++) {
-    const raw = (manualLapInputs[i].value ?? "").trim();
-    if (raw === "") {
-      foundBlank = true;
-    } else if (foundBlank) {
-      lapErrorDiv.textContent = `Manual entry error: Lap ${i + 1} has a value but an earlier lap is blank.`;
-      return false;
-    }
-  }
-
-  lapErrorDiv.textContent = "";
-  lapTimes = parsed;
+function syncLapTimesFromManualTable() {
+  // This function used to live-validate on each keystroke.
+  // We keep the name so other code doesn’t break, but we validate on Calculate instead.
   return true;
 }
 
-function refreshStopwatchButtonState() {
-  // If the timer hit 6 minutes, the UI is intentionally locked in "Finished".
-  const isFinished = String(toggleButton.textContent).trim().toLowerCase() === "finished";
+function maybeAddManualRowFromIndex(index) {
+  if (!isManualMode) return;
 
-  if (isManualMode) {
-    toggleButton.disabled = true;
-    lapButton.disabled = true;
-    resetButton.disabled = false;
+  const inputs = Array.from(lapTableBody.querySelectorAll("input.manual-time-input"));
+  const isLast = index >= inputs.length - 1;
+
+  // Only add a row if the current row has something parseable
+  const v = (inputs[index]?.value || "").trim();
+  const sec = parseTimeFlexibleToSeconds(v);
+  if (!sec && sec !== 0) {
+    // still move focus forward if possible
+    if (inputs[index + 1]) inputs[index + 1].focus();
     return;
   }
 
-  toggleButton.disabled = isFinished ? true : false;
-  lapButton.disabled = !stopwatchRunning || isFinished;
-  // Reset is allowed if the user has started/recorded anything.
-  resetButton.disabled = isFinished ? false : (elapsedMs <= 0 && lapTimes.length === 0);
+  if (isLast) {
+    manualRowCount += 1;
+    renderLapTable();
+
+    // focus the next row that was just added
+    const newInputs = Array.from(lapTableBody.querySelectorAll("input.manual-time-input"));
+    if (newInputs[index + 1]) newInputs[index + 1].focus();
+  } else {
+    if (inputs[index + 1]) inputs[index + 1].focus();
+  }
 }
+
+/**
+ * Read manual times from the table and return an array of seconds.
+ * - trailing blank rows are ignored
+ * - blank row in the middle is an error
+ * - times must be strictly increasing
+ * If showErrors is true, writes a message into lapErrorDiv.
+ */
+function readManualLapTimes(showErrors) {
+  const inputs = Array.from(lapTableBody.querySelectorAll("input.manual-time-input"));
+  const secs = [];
+  let seenBlank = false;
+
+  for (let i = 0; i < inputs.length; i++) {
+    const raw = (inputs[i].value || "").trim();
+
+    if (!raw) {
+      // once blank, everything after must also be blank
+      seenBlank = true;
+      continue;
+    }
+    if (seenBlank) {
+      if (showErrors) {
+        lapErrorDiv.textContent = `Manual entry error: you left a blank row before lap ${i + 1}.`;
+      }
+      return null;
+    }
+
+    const sec = parseTimeFlexibleToSeconds(raw);
+    if (sec === null) {
+      if (showErrors) {
+        lapErrorDiv.textContent = `Manual entry error on lap ${i + 1}: please enter a time like :37, 1:40, 02:15.`;
+      }
+      return null;
+    }
+
+    // Strictly increasing cumulative times
+    if (secs.length > 0 && sec <= secs[secs.length - 1]) {
+      if (showErrors) {
+        lapErrorDiv.textContent = `Manual entry error on lap ${i + 1}: times must be strictly increasing.`;
+      }
+      return null;
+    }
+
+    secs.push(sec);
+  }
+
+  // ok
+  if (showErrors) lapErrorDiv.textContent = "";
+  return secs;
+}
+
 
 function setManualMode(on) {
   isManualMode = !!on;
 
-  // Prevent mixing manual input with live timing.
-  if (isManualMode && stopwatchRunning) {
-    stopTimer();
-  }
-
-  // Swap UI sections
+  // Title text swap (manual ON = Lap recorder)
   if (stopwatchTitleEl) {
     stopwatchTitleEl.textContent = isManualMode ? "Lap recorder" : "Stopwatch and lap recorder";
   }
 
-  if (stopwatchLiveArea) {
-    stopwatchLiveArea.classList.toggle("hidden", isManualMode);
-  }
-  if (liveLapTableArea) {
-    liveLapTableArea.classList.toggle("hidden", isManualMode);
-  }
-  if (manualLapArea) {
-    manualLapArea.classList.toggle("hidden", !isManualMode);
+  // If switching on, stop the stopwatch so we don't mix modes
+  if (isManualMode && stopwatchRunning) {
+    stopTimer();
   }
 
-  // Ensure manual table starts with exactly one row the first time.
-  if (isManualMode && manualLapInputs.length === 0) {
-    clearManualLapTableToSingleRow();
+  if (stopwatchControlsEl) {
+    stopwatchControlsEl.classList.toggle("hidden", isManualMode);
+  }
+  if (manualHintEl) {
+    manualHintEl.classList.toggle("hidden", !isManualMode);
+  }
+  if (manualRowControlsEl) {
+    manualRowControlsEl.classList.toggle("hidden", !isManualMode);
   }
 
-  // Keep lapTimes authoritative from whichever mode is active.
+  // Keep safety: disable lap recording when manual mode is enabled
+  lapButton.disabled = isManualMode || !stopwatchRunning;
+
   if (isManualMode) {
-    syncLapTimesFromManualTable({ normalize: true, allowTrailingEmpty: true });
+    // keep whatever laps were already recorded as a starting point
+    manualRowCount = Math.max(8, lapTimes.length + 2);
+    toggleButton.disabled = true;
+  } else {
+    // Don’t override a Finished state
+    if (toggleButton.textContent !== "Finished") {
+      toggleButton.disabled = false;
+    }
+    lapErrorDiv.textContent = "";
   }
 
-  refreshStopwatchButtonState();
+  setLapHeaderForMode();
+  renderLapTable();
 }
+
 
 /* =========================
    Per-minute distance calculation helpers
@@ -537,6 +559,9 @@ function positionToOffsetWithinLap(posM, direction) {
   if (dir === "out") {
     return posM;
   } else if (dir === "back") {
+    // Treat 0 as the start line regardless of direction.
+    // Without this, (back, 0) would become 50 m and double-count a full lap.
+    if (posM === 0) return 0;
     return LAP_LENGTH_M - posM;
   }
   throw new Error('direction must be "out" or "back"');
@@ -563,13 +588,16 @@ function calculate() {
   lapErrorDiv.textContent = "";
   minuteErrorDiv.textContent = "";
 
-  // If manual mode is enabled, parse the manual lap table so lapTimes stays authoritative.
+  // If in manual mode, pull lap times from the table now.
+  // (We intentionally do NOT validate on every keystroke.)
   if (isManualMode) {
-    const ok = syncLapTimesFromManualTable({ normalize: true, allowTrailingEmpty: true });
-    if (!ok) {
+    const secs = readManualLapTimes(true);
+    if (!secs) {
       resultsBox.textContent = "Error: fix manual lap times before calculating.";
       return;
     }
+    // Store as seconds (cumulative lap times)
+    lapTimes = secs;
   }
 
   // Results are always written here
@@ -579,6 +607,12 @@ function calculate() {
   // the per minute logic behaves like the original text based version.
   const sortedLapTimes = [...lapTimes].sort((a, b) => a - b);
 
+  // Small helper for aligned console-style output
+  function padRight(v, width) {
+    const s = String(v);
+    return s.length >= width ? s : s + " ".repeat(width - s.length);
+  }
+
   // 1) Parse minute positions with validation as in Original_index.html
   const minuteInfo = [];
 
@@ -587,7 +621,9 @@ function calculate() {
     const dirButton = document.getElementById(`dir_${m}`);
 
     const rawPos = posInput.value.trim();
-    const rawDir = ((dirButton && (dirButton.dataset.dir || dirButton.textContent)) || "").trim().toLowerCase();
+    const rawDir = ((dirButton && (dirButton.dataset.dir || dirButton.textContent)) || "")
+      .trim()
+      .toLowerCase();
 
     if (!rawPos) {
       const msg = `Please enter a position (0 to 25 m) for minute ${m}.`;
@@ -596,37 +632,33 @@ function calculate() {
       return;
     }
 
-    const pos = parseFloat(rawPos);
-    if (Number.isNaN(pos) || pos < 0 || pos > 25) {
-      const msg = `Position for minute ${m} must be a number between 0 and 25.`;
+    const posM = parseInt(rawPos, 10);
+    if (Number.isNaN(posM) || posM < 0 || posM > 25) {
+      const msg = `Position must be between 0 and 25 for minute ${m}.`;
       minuteErrorDiv.textContent = msg;
       resultsBox.textContent = `Error: invalid position for minute ${m}.`;
       return;
     }
 
     if (rawDir !== "out" && rawDir !== "back") {
-      const msg = `Direction for minute ${m} must be "out" or "back".`;
+      const msg = `Direction must be 'out' or 'back' for minute ${m}.`;
       minuteErrorDiv.textContent = msg;
       resultsBox.textContent = `Error: invalid direction for minute ${m}.`;
       return;
     }
 
-    minuteInfo.push({
-      minute: m,
-      posM: pos,
-      dir: rawDir
-    });
+    minuteInfo.push({ minute: m, posM, dir: rawDir });
   }
 
-  // 2) Compute distance at each minute, enforcing non-decreasing total distance
-  let prevTotalDistance = 0;
+  // 2) Compute per-minute distances
   const rows = [];
+  let prevTotalDistance = 0;
 
   for (let i = 0; i < minuteInfo.length; i++) {
     const info = minuteInfo[i];
     const minute = info.minute;
-    const tSec = minute * 60; // time in seconds for this minute mark
 
+    const tSec = minute * 60;
     const lapsCompleted = getLapsCompletedByTime(sortedLapTimes, tSec);
     const distFullLaps = lapsCompleted * LAP_LENGTH_M;
 
@@ -653,9 +685,7 @@ function calculate() {
   }
 
   // 3) Summaries
-  const totalDistanceAll = rows.length
-    ? rows[rows.length - 1].totalDistanceM
-    : 0;
+  const totalDistanceAll = rows.length ? rows[rows.length - 1].totalDistanceM : 0;
   const totalLapsAll = totalDistanceAll / LAP_LENGTH_M;
 
   // 4) Build formatted output similar to Original_index.html
@@ -674,7 +704,7 @@ function calculate() {
   rows.forEach((row) => {
     lines.push(
       padRight(row.minute, 4) +
-        padRight(row.timeS.toFixed(1), 9) +
+        padRight(row.timeS.toFixed(0), 9) +
         padRight(row.distanceThisMinuteM.toFixed(2), 13) +
         padRight(row.lapsThisMinute.toFixed(3), 15) +
         padRight(row.totalDistanceM.toFixed(2), 10)
@@ -682,20 +712,23 @@ function calculate() {
   });
 
   lines.push("");
-  lines.push("Totals (0–6 minutes):");
-  lines.push(`  Total distance: ${totalDistanceAll.toFixed(2)} m`);
-  lines.push(`  Total laps:     ${totalLapsAll.toFixed(3)} laps`);
+  lines.push(`Total distance (m): ${totalDistanceAll.toFixed(2)}`);
+  lines.push(`Total laps: ${totalLapsAll.toFixed(3)}`);
 
   resultsBox.textContent = lines.join("\n");
 }
 
-/**
- * Clear only the results and errors, not the stopwatch or sticky-note inputs.
- */
 function clearResults() {
+  minuteErrorDiv.textContent = "";
+  lapErrorDiv.textContent = "";
   resultsBox.textContent = "Per-minute results will appear here.";
+}
+
+/** Clear only the results text and related errors (keeps inputs). */
+function clearResults() {
   lapErrorDiv.textContent = "";
   minuteErrorDiv.textContent = "";
+  resultsBox.textContent = "Per-minute results will appear here.";
 }
 
 /**
@@ -736,15 +769,17 @@ if (manualModeToggle) {
   });
 }
 
-if (manualClearLapsBtn) {
-  manualClearLapsBtn.addEventListener("click", () => {
-    lapErrorDiv.textContent = "";
-    lapTimes = [];
-    clearManualLapTableToSingleRow();
-    // Keep the live lap table in sync (even though it's hidden in manual mode)
+// Manual "Add row" button
+if (addRowButton) {
+  addRowButton.addEventListener("click", () => {
+    if (!isManualMode) return;
+    manualRowCount += 1;
     renderLapTable();
+    const inputs = Array.from(lapTableBody.querySelectorAll("input.manual-time-input"));
+    if (inputs.length) inputs[inputs.length - 1].focus();
   });
 }
+
 
 // These are click events only, so the passive option is not critical, but it does not hurt here.
 toggleButton.addEventListener("click", toggleTimer, { passive: true });
@@ -810,3 +845,10 @@ updateTimerDisplay();
 resetButton.disabled = true;
 lapButton.disabled = true;
 resultsBox.textContent = "Per-minute results will appear here.";
+
+// Ensure mode UI is consistent on load
+if (manualModeToggle && manualModeToggle.checked) {
+  setManualMode(true);
+} else {
+  setManualMode(false);
+}
