@@ -218,3 +218,26 @@ pre {
 .dir-toggle.back {
   background-color: #9e9e9e;
 }
+
+/* ================================
+   Manual lap-time entry (optional)
+================================ */
+
+.hidden { display: none; }
+
+.mode-row {
+  margin-top: 0.75rem;
+  display: flex;
+  align-items: center;
+}
+
+.mode-toggle {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.95rem;
+}
+
+.manual-entry {
+  margin-top: 0.75rem;
+}
