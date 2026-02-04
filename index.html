@@ -32,33 +32,14 @@
     <div class="layout-two">
       <!-- STOPWATCH CARD -->
       <div class="card">
-        <div class="card-title-row">
-          <h2 id="stopwatchTitle">Stopwatch and lap recorder</h2>
+        <h2>Stopwatch and lap recorder</h2>
 
-          <div class="toggle-inline" aria-label="Manual cumulative lap time entry">
-            <span class="toggle-text">Manual</span>
-            <label class="switch">
-              <input type="checkbox" id="manualModeToggle" />
-              <span class="slider"></span>
-            </label>
-          </div>
-        </div>
+        <div class="timer-display" id="timerDisplay">00:00.0</div>
 
-        <div id="stopwatchControls">
-          <div class="timer-display" id="timerDisplay">00:00.0</div>
-
-          <div class="button-row">
-            <button id="toggleButton">Start</button>
-            <button id="lapButton" disabled>Lap</button>
-            <button id="resetButton" class="secondary" disabled>Reset</button>
-          </div>
-        </div>
-
-        <div id="manualHint" class="small-text hidden">
-          Enter cumulative lap times from your stopwatch (mm:ss). Tap “Add row” or press Enter/Done for more rows.
-        </div>
-        <div id="manualRowControls" class="button-row hidden" style="margin-top:0.6rem;">
-          <button type="button" id="addRowButton" class="secondary">Add row</button>
+        <div class="button-row">
+          <button id="toggleButton">Start</button>
+          <button id="lapButton" disabled>Lap</button>
+          <button id="resetButton" class="secondary" disabled>Reset</button>
         </div>
 
         <div class="minute-grid-wrapper">
@@ -66,7 +47,7 @@
             <thead>
               <tr>
                 <th>Lap #</th>
-                <th id="lapTimeHeader">Time (mm:ss.s)</th>
+                <th>Time (mm:ss.s)</th>
               </tr>
             </thead>
             <tbody id="lapTableBody"></tbody>
