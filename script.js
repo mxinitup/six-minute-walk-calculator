@@ -31,10 +31,14 @@ const resetButton = document.getElementById("resetButton");
 const timerDisplayEl = document.getElementById("timerDisplay");
 const lapTableBody = document.getElementById("lapTableBody");
 
-// Optional manual mode elements (added for clean toggle-based workflow)
+// Manual mode elements
 const manualModeToggle = document.getElementById("manualModeToggle");
-const manualEntryDiv = document.getElementById("manualEntry");
-const manualLapTimesEl = document.getElementById("manualLapTimes");
+const stopwatchTitleEl = document.getElementById("stopwatchTitle");
+const stopwatchLiveArea = document.getElementById("stopwatchLiveArea");
+const liveLapTableArea = document.getElementById("liveLapTableArea");
+const manualLapArea = document.getElementById("manualLapArea");
+const manualLapTableBody = document.getElementById("manualLapTableBody");
+const manualClearLapsBtn = document.getElementById("manualClearLaps");
 
 let isManualMode = false;
 
@@ -189,174 +193,28 @@ function resetTimer() {
   lapTimes = [];
   lapTableBody.innerHTML = "";
 
-  // Clear manual mode state/inputs
-  if (manualLapTimesEl) {
-    manualLapTimesEl.value = "";
-  }
+  // Clear manual mode UI/state
   if (manualModeToggle) {
     manualModeToggle.checked = false;
   }
   isManualMode = false;
-  if (manualEntryDiv) {
-    manualEntryDiv.classList.add("hidden");
+
+  if (manualLapArea) {
+    manualLapArea.classList.add("hidden");
+  }
+  if (stopwatchLiveArea) {
+    stopwatchLiveArea.classList.remove("hidden");
+  }
+  if (liveLapTableArea) {
+    liveLapTableArea.classList.remove("hidden");
+  }
+  if (stopwatchTitleEl) {
+    stopwatchTitleEl.textContent = "Stopwatch and lap recorder";
   }
 
-  // Clear stopwatch-related errors and keep the minute error/result untouched
-  lapErrorDiv.textContent = "";
-}
-
-/**
- * Toggle between running and stopped states.
- * This replaces separate Start and Stop handlers.
- */
-function toggleTimer() {
-  // Clear any existing lap error on state change just to keep things clean
-  lapErrorDiv.textContent = "";
-
-  if (!stopwatchRunning) {
-    startTimer();
-  } else {
-    stopTimer();
-  }
-}
-
-/**
- * Record a new lap time.
- * Lap times are stored as cumulative seconds, so they match how the original calculator
- * used cumulative lap times typed into the textarea.
- */
-function recordLap() {
-  if (!stopwatchRunning) {
-    return;
-  }
-
-  const now = performance.now();
-  const diff = now - stopwatchStartTime;
-  const currentMs = elapsedMs + diff;
-  const currentSec = currentMs / 1000;
-
-  // Enforce strictly increasing lap times.
-  // If the user accidentally taps Lap twice quickly at almost the same time,
-  // we do not want to record a duplicate or smaller lap time.
-  if (lapTimes.length > 0 && currentSec <= lapTimes[lapTimes.length - 1]) {
-    lapErrorDiv.textContent =
-      "Lap ignored: lap time must be greater than previous lap time.";
-    return;
-  }
-
-  lapTimes.push(currentSec);
-  lapErrorDiv.textContent = "";
-
-  renderLapTable();
-}
-
-/**
- * Render the lap times into the lap table on the left.
- */
-function renderLapTable() {
-  lapTableBody.innerHTML = "";
-
-  lapTimes.forEach((t, index) => {
-    const tr = document.createElement("tr");
-    const tdLap = document.createElement("td");
-    const tdTime = document.createElement("td");
-
-    tdLap.textContent = index + 1;
-    tdTime.textContent = formatTimeSeconds(t);
-
-    tr.appendChild(tdLap);
-    tr.appendChild(tdTime);
-    lapTableBody.appendChild(tr);
-  });
-}
-
-/* =========================
-   Manual lap-time entry helpers (optional)
-   ========================= */
-
-/**
- * Parse a time string in mm:ss or mm:ss.s into seconds.
- * Returns null if invalid.
- */
-function parseTimeStringToSeconds(s) {
-  const str = String(s).trim();
-  const m = str.match(/^(\d+):([0-5]?\d)(?:\.(\d))?$/);
-  if (!m) return null;
-
-  const minutes = parseInt(m[1], 10);
-  const seconds = parseInt(m[2], 10);
-  const tenths = m[3] ? parseInt(m[3], 10) : 0;
-
-  return minutes * 60 + seconds + tenths / 10;
-}
-
-/**
- * Sync lapTimes from the manual textarea.
- * Uses lapErrorDiv for validation feedback.
- */
-function syncLapTimesFromManualEntry() {
-  if (!manualLapTimesEl) {
-    return true;
-  }
-
-  const raw = manualLapTimesEl.value || "";
-  const lines = raw
-    .split(/\r?\n/)
-    .map((l) => l.trim())
-    .filter((l) => l.length > 0);
-
-  const parsed = [];
-  for (let i = 0; i < lines.length; i++) {
-    const sec = parseTimeStringToSeconds(lines[i]);
-    if (sec === null) {
-      lapErrorDiv.textContent = `Manual entry error on line ${i + 1}: "${lines[i]}". Use mm:ss.s`;
-      return false;
-    }
-    if (i > 0 && sec <= parsed[i - 1]) {
-      lapErrorDiv.textContent = `Manual entry error on line ${i + 1}: times must be strictly increasing.`;
-      return false;
-    }
-    parsed.push(sec);
-  }
-
-  lapErrorDiv.textContent = "";
-  lapTimes = parsed;
-  renderLapTable();
-  return true;
-}
-
-function refreshStopwatchButtonState() {
-  // If the timer hit 6 minutes, the UI is intentionally locked in "Finished".
-  const isFinished = String(toggleButton.textContent).trim().toLowerCase() === "finished";
-
-  if (isManualMode) {
-    toggleButton.disabled = true;
-    lapButton.disabled = true;
-    resetButton.disabled = false;
-    return;
-  }
-
-  toggleButton.disabled = isFinished ? true : false;
-  lapButton.disabled = !stopwatchRunning || isFinished;
-  // Reset is allowed if the user has started/recorded anything.
-  resetButton.disabled = isFinished ? false : (elapsedMs <= 0 && lapTimes.length === 0);
-}
-
-function setManualMode(on) {
-  isManualMode = !!on;
-
-  // Prevent mixing manual input with live timing.
-  if (isManualMode && stopwatchRunning) {
-    stopTimer();
-  }
-
-  if (manualEntryDiv) {
-    manualEntryDiv.classList.toggle("hidden", !isManualMode);
-  }
-
-  // Sync immediately when enabling manual mode so the lap table reflects pasted values.
-  if (isManualMode) {
-    syncLapTimesFromManualEntry();
+  // Also clear the manual table UI
+  if (manualLapTableBody) {
+    manualLapTableBody.innerHTML = "";
   }
 
   refreshStopwatchButtonState();
@@ -425,9 +283,9 @@ function calculate() {
   lapErrorDiv.textContent = "";
   minuteErrorDiv.textContent = "";
 
-  // If manual mode is enabled, re-parse the textarea so lapTimes stays authoritative.
+  // If manual mode is enabled, sync/validate the manual table so lapTimes stays authoritative.
   if (isManualMode) {
-    const ok = syncLapTimesFromManualEntry();
+    const ok = syncLapTimesFromManualTable();
     if (!ok) {
       resultsBox.textContent = "Error: fix manual lap times before calculating.";
       return;
@@ -598,11 +456,17 @@ if (manualModeToggle) {
   });
 }
 
-if (manualLapTimesEl) {
-  manualLapTimesEl.addEventListener("input", () => {
+
+if (manualClearLapsBtn) {
+  manualClearLapsBtn.addEventListener("click", () => {
+    lapTimes = [];
+    lapErrorDiv.textContent = "";
     if (isManualMode) {
-      syncLapTimesFromManualEntry();
+      renderManualLapTable();
+    } else {
+      renderLapTable();
     }
+    refreshStopwatchButtonState();
   });
 }
 

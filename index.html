@@ -32,36 +32,45 @@
     <div class="layout-two">
       <!-- STOPWATCH CARD -->
       <div class="card">
-        <h2>Stopwatch and lap recorder</h2>
-
-        <div class="timer-display" id="timerDisplay">00:00.0</div>
-
-        <div class="button-row">
-          <button id="toggleButton">Start</button>
-          <button id="lapButton" disabled>Lap</button>
-          <button id="resetButton" class="secondary" disabled>Reset</button>
-        </div>
-
-        <!-- Manual entry toggle + textarea (hidden unless enabled) -->
-        <div class="mode-row">
-          <label class="mode-toggle">
+        <div class="card-header-row">
+          <h2 id="stopwatchTitle">Stopwatch and lap recorder</h2>
+          <label class="switch" title="Manual lap entry">
             <input type="checkbox" id="manualModeToggle" />
-            <span>Manual lap times</span>
+            <span class="slider"></span>
           </label>
         </div>
 
-        <div id="manualEntry" class="manual-entry hidden">
-          <div class="small-text" style="margin-bottom:0.4rem;">
-            Paste cumulative lap times (mm:ss.s), one per line:
+        <div id="stopwatchLiveArea">
+          <div class="timer-display" id="timerDisplay">00:00.0</div>
+
+          <div class="button-row" id="stopwatchControls">
+            <button id="toggleButton">Start</button>
+            <button id="lapButton" disabled>Lap</button>
+            <button id="resetButton" class="secondary" disabled>Reset</button>
           </div>
-          <textarea
-            id="manualLapTimes"
-            rows="6"
-            placeholder="00:32.1&#10;01:04.8&#10;01:36.0"
-          ></textarea>
-          <div class="small-text">Example format: 02:15.3 (minutes:seconds.tenths)</div>
         </div>
 
+        <div id="manualLapArea" class="manual-lap-area hidden">
+          <div class="small-text" style="margin-bottom:0.4rem;">
+            Enter cumulative lap times (mm:ss). Press Enter to add the next lap.
+          </div>
+          <div class="minute-grid-wrapper">
+            <table class="minute-grid" id="manualLapTable">
+              <thead>
+                <tr>
+                  <th>Lap #</th>
+                  <th>Cumulative time (mm:ss)</th>
+                </tr>
+              </thead>
+              <tbody id="manualLapTableBody"></tbody>
+            </table>
+          </div>
+          <div class="button-row">
+            <button id="manualClearLaps" class="secondary" type="button">Clear laps</button>
+          </div>
+        </div>
+
+        <div id="liveLapTableArea">
         <div class="minute-grid-wrapper">
           <table class="minute-grid" id="lapTable">
             <thead>
@@ -72,6 +81,7 @@
             </thead>
             <tbody id="lapTableBody"></tbody>
           </table>
+        </div>
         </div>
 
         <!-- 
