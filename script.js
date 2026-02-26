@@ -45,11 +45,6 @@ let isManualMode = false;
 // (e.g., when adding rows) does NOT wipe what the user already typed.
 let manualLapValues = [""]; // array of strings (mm:ss) per row
 
-// Some mobile keyboards inconsistently fire Enter key events (keydown vs keyup vs blur).
-// Track the last handled Enter to avoid double-adding rows when both events fire.
-let lastManualEnterIndex = -1;
-let lastManualEnterAt = 0;
-
 // Back-compat variable used by some helper logic; keep it in sync with manualLapValues.length.
 let manualRowCount = manualLapValues.length;
 
@@ -384,18 +379,6 @@ function renderLapTable() {
     // Keep manualLapValues up-to-date as the user types.
     input.addEventListener("input", () => {
       manualLapValues[i] = input.value;
-
-      // Some on-screen keyboards (esp. iPad) don't send an Enter key event when
-      // the user taps "Return/Done/Next". They often also *don't* blur.
-      // Auto-add the next row as soon as the user has entered a "complete" time
-      // in the last row.
-      if (i === manualLapValues.length - 1) {
-        const raw = (input.value || "").trim();
-        if (isCompleteManualTime(raw)) {
-          // Add a new row and move focus to it.
-          maybeAddManualRowFromIndex(i, true);
-        }
-      }
     });
 
     // Normalize on blur (don’t nag while typing)
@@ -409,28 +392,17 @@ function renderLapTable() {
       input.value = normalized;
       manualLapValues[i] = normalized;
 
-      // On many mobile/tablet keyboards, the "Done" key triggers blur without an Enter key event.
-      // If they filled the last row, add the next blank row, but DON'T steal focus on blur.
-      maybeAddManualRowFromIndex(i, false);
+      // If they just finished the last non-blank row, auto-add a new blank row.
+      if (i === manualLapValues.length - 2) {
+        maybeAddManualRowFromIndex(i);
+      }
     });
 
     // Enter/Done -> add a row if needed, then focus next
     input.addEventListener("keydown", (e) => {
       if (e.key !== "Enter") return;
       e.preventDefault();
-      lastManualEnterIndex = i;
-      lastManualEnterAt = Date.now();
-      maybeAddManualRowFromIndex(i, true);
-    });
-
-    // Some on-screen keyboards don’t reliably fire keydown for Enter.
-    // keyup is a cheap extra hook that improves consistency.
-    input.addEventListener("keyup", (e) => {
-      if (e.key !== "Enter") return;
-      // If keydown already handled this Enter very recently, don't do it twice.
-      if (lastManualEnterIndex === i && Date.now() - lastManualEnterAt < 200) return;
-      e.preventDefault();
-      maybeAddManualRowFromIndex(i, true);
+      maybeAddManualRowFromIndex(i);
     });
 
     tdTime.appendChild(input);
@@ -438,23 +410,6 @@ function renderLapTable() {
     tr.appendChild(tdTime);
     lapTableBody.appendChild(tr);
   }
-}
-
-// Consider a manual time "complete" when it is unlikely the user is still typing.
-// We want to avoid adding a new row after just a single digit.
-// Accept:
-//   - mm:ss   (e.g., 1:05, 12:34)
-//   - :ss     (e.g., :37)
-//   - ss      (exactly two digits, e.g., 37)
-function isCompleteManualTime(raw) {
-  const s = String(raw || "").trim();
-  if (!s) return false;
-  if (s.includes(":")) {
-    // Require 2-digit seconds to avoid triggering on "1:" or "1:4".
-    return /^\s*(\d+\s*:\s*\d{2}|\s*:\s*\d{2})\s*$/.test(s);
-  }
-  // Seconds-only: require exactly 2 digits.
-  return /^\s*\d{2}\s*$/.test(s);
 }
 
 
@@ -470,7 +425,7 @@ function syncLapTimesFromManualTable() {
   return true;
 }
 
-function maybeAddManualRowFromIndex(index, focusNext = true) {
+function maybeAddManualRowFromIndex(index) {
   if (!isManualMode) return;
 
   const inputs = Array.from(lapTableBody.querySelectorAll("input.manual-time-input"));
@@ -482,7 +437,7 @@ function maybeAddManualRowFromIndex(index, focusNext = true) {
   const sec = parseTimeFlexibleToSeconds(v);
   if (!sec && sec !== 0) {
     // still move focus forward if possible
-    if (focusNext && inputs[index + 1]) inputs[index + 1].focus();
+    if (inputs[index + 1]) inputs[index + 1].focus();
     return;
   }
 
@@ -499,15 +454,13 @@ function maybeAddManualRowFromIndex(index, focusNext = true) {
 
     renderLapTable();
 
-    // focus the next row that was just added (only if requested)
-    if (focusNext) {
-      const newInputs = Array.from(lapTableBody.querySelectorAll("input.manual-time-input"));
-      if (newInputs[index + 1]) newInputs[index + 1].focus();
-    }
+    // focus the next row that was just added
+    const newInputs = Array.from(lapTableBody.querySelectorAll("input.manual-time-input"));
+    if (newInputs[index + 1]) newInputs[index + 1].focus();
     return;
   }
 
-  if (focusNext && inputs[index + 1]) inputs[index + 1].focus();
+  if (inputs[index + 1]) inputs[index + 1].focus();
 }
 
 /**
@@ -647,13 +600,9 @@ function positionToOffsetWithinLap(posM, direction) {
   if (dir === "out") {
     return posM;
   } else if (dir === "back") {
-    // On the return leg, the subject is somewhere between 25 m (turnaround)
-    // and 0 m (back at the start line). We convert that to a 25..50 m offset
-    // within the 50 m lap.
-    //
-    // IMPORTANT: (back, 0) should map to 50 m (end of lap), not 0 m.
-    // Treating it as 0 causes the classic "tiny minute then huge minute"
-    // artifact when the minute mark occurs right at the start line.
+    // Treat 0 as the start line regardless of direction.
+    // Without this, (back, 0) would become 50 m and double-count a full lap.
+    if (posM === 0) return 0;
     return LAP_LENGTH_M - posM;
   }
   throw new Error('direction must be "out" or "back"');
