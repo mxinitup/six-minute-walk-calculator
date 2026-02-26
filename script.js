@@ -384,6 +384,18 @@ function renderLapTable() {
     // Keep manualLapValues up-to-date as the user types.
     input.addEventListener("input", () => {
       manualLapValues[i] = input.value;
+
+      // Some on-screen keyboards (esp. iPad) don't send an Enter key event when
+      // the user taps "Return/Done/Next". They often also *don't* blur.
+      // Auto-add the next row as soon as the user has entered a "complete" time
+      // in the last row.
+      if (i === manualLapValues.length - 1) {
+        const raw = (input.value || "").trim();
+        if (isCompleteManualTime(raw)) {
+          // Add a new row and move focus to it.
+          maybeAddManualRowFromIndex(i, true);
+        }
+      }
     });
 
     // Normalize on blur (don’t nag while typing)
@@ -426,6 +438,23 @@ function renderLapTable() {
     tr.appendChild(tdTime);
     lapTableBody.appendChild(tr);
   }
+}
+
+// Consider a manual time "complete" when it is unlikely the user is still typing.
+// We want to avoid adding a new row after just a single digit.
+// Accept:
+//   - mm:ss   (e.g., 1:05, 12:34)
+//   - :ss     (e.g., :37)
+//   - ss      (exactly two digits, e.g., 37)
+function isCompleteManualTime(raw) {
+  const s = String(raw || "").trim();
+  if (!s) return false;
+  if (s.includes(":")) {
+    // Require 2-digit seconds to avoid triggering on "1:" or "1:4".
+    return /^\s*(\d+\s*:\s*\d{2}|\s*:\s*\d{2})\s*$/.test(s);
+  }
+  // Seconds-only: require exactly 2 digits.
+  return /^\s*\d{2}\s*$/.test(s);
 }
 
 
