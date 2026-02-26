@@ -600,9 +600,13 @@ function positionToOffsetWithinLap(posM, direction) {
   if (dir === "out") {
     return posM;
   } else if (dir === "back") {
-    // Treat 0 as the start line regardless of direction.
-    // Without this, (back, 0) would become 50 m and double-count a full lap.
-    if (posM === 0) return 0;
+    // On the return leg, the subject is somewhere between 25 m (turnaround)
+    // and 0 m (back at the start line). We convert that to a 25..50 m offset
+    // within the 50 m lap.
+    //
+    // IMPORTANT: (back, 0) should map to 50 m (end of lap), not 0 m.
+    // Treating it as 0 causes the classic "tiny minute then huge minute"
+    // artifact when the minute mark occurs right at the start line.
     return LAP_LENGTH_M - posM;
   }
   throw new Error('direction must be "out" or "back"');
