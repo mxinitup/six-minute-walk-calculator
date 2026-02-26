@@ -45,6 +45,11 @@ let isManualMode = false;
 // (e.g., when adding rows) does NOT wipe what the user already typed.
 let manualLapValues = [""]; // array of strings (mm:ss) per row
 
+// Some mobile keyboards inconsistently fire Enter key events (keydown vs keyup vs blur).
+// Track the last handled Enter to avoid double-adding rows when both events fire.
+let lastManualEnterIndex = -1;
+let lastManualEnterAt = 0;
+
 // Back-compat variable used by some helper logic; keep it in sync with manualLapValues.length.
 let manualRowCount = manualLapValues.length;
 
@@ -392,17 +397,28 @@ function renderLapTable() {
       input.value = normalized;
       manualLapValues[i] = normalized;
 
-      // If they just finished the last non-blank row, auto-add a new blank row.
-      if (i === manualLapValues.length - 2) {
-        maybeAddManualRowFromIndex(i);
-      }
+      // On many mobile/tablet keyboards, the "Done" key triggers blur without an Enter key event.
+      // If they filled the last row, add the next blank row, but DON'T steal focus on blur.
+      maybeAddManualRowFromIndex(i, false);
     });
 
     // Enter/Done -> add a row if needed, then focus next
     input.addEventListener("keydown", (e) => {
       if (e.key !== "Enter") return;
       e.preventDefault();
-      maybeAddManualRowFromIndex(i);
+      lastManualEnterIndex = i;
+      lastManualEnterAt = Date.now();
+      maybeAddManualRowFromIndex(i, true);
+    });
+
+    // Some on-screen keyboards don’t reliably fire keydown for Enter.
+    // keyup is a cheap extra hook that improves consistency.
+    input.addEventListener("keyup", (e) => {
+      if (e.key !== "Enter") return;
+      // If keydown already handled this Enter very recently, don't do it twice.
+      if (lastManualEnterIndex === i && Date.now() - lastManualEnterAt < 200) return;
+      e.preventDefault();
+      maybeAddManualRowFromIndex(i, true);
     });
 
     tdTime.appendChild(input);
@@ -425,7 +441,7 @@ function syncLapTimesFromManualTable() {
   return true;
 }
 
-function maybeAddManualRowFromIndex(index) {
+function maybeAddManualRowFromIndex(index, focusNext = true) {
   if (!isManualMode) return;
 
   const inputs = Array.from(lapTableBody.querySelectorAll("input.manual-time-input"));
@@ -437,7 +453,7 @@ function maybeAddManualRowFromIndex(index) {
   const sec = parseTimeFlexibleToSeconds(v);
   if (!sec && sec !== 0) {
     // still move focus forward if possible
-    if (inputs[index + 1]) inputs[index + 1].focus();
+    if (focusNext && inputs[index + 1]) inputs[index + 1].focus();
     return;
   }
 
@@ -454,13 +470,15 @@ function maybeAddManualRowFromIndex(index) {
 
     renderLapTable();
 
-    // focus the next row that was just added
-    const newInputs = Array.from(lapTableBody.querySelectorAll("input.manual-time-input"));
-    if (newInputs[index + 1]) newInputs[index + 1].focus();
+    // focus the next row that was just added (only if requested)
+    if (focusNext) {
+      const newInputs = Array.from(lapTableBody.querySelectorAll("input.manual-time-input"));
+      if (newInputs[index + 1]) newInputs[index + 1].focus();
+    }
     return;
   }
 
-  if (inputs[index + 1]) inputs[index + 1].focus();
+  if (focusNext && inputs[index + 1]) inputs[index + 1].focus();
 }
 
 /**
