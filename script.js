@@ -87,26 +87,31 @@ function parseTimeFlexibleToSeconds(str) {
   const raw = String(str || "").trim();
   if (!raw) return null;
 
-  // Accept formats like:
-  //  :37   -> 0:37
-  //  37    -> 0:37
-  //  1:4   -> 1:04
-  //  1:40  -> 1:40
-  //  2:75  -> 3:15 (carry seconds)
-  const m = raw.match(/^\s*(?:(\d+)\s*:\s*)?(\d+)?\s*$/);
-  if (!m) return null;
+  // Accept manual entries as:
+  //   ss      -> 00:ss
+  //   m:ss    -> 0m:ss
+  //   mm:ss   -> mm:ss
+  // Also tolerate whitespace and single-digit seconds (e.g. 1:4 -> 01:04).
+  const compact = raw.replace(/\s+/g, "");
 
-  let minutes = m[1] ? parseInt(m[1], 10) : 0;
-  let secondsPart = m[2];
+  // Seconds only, e.g. "37"
+  if (/^\d+$/.test(compact)) {
+    return parseInt(compact, 10);
+  }
 
-  // Special case: user typed just ":" or "1:" (seconds missing) -> treat as incomplete
-  if (raw.includes(":") && (secondsPart === undefined || secondsPart === "")) return null;
+  // One colon only, e.g. "1:23" or "01:23"
+  const parts = compact.split(":");
+  if (parts.length !== 2) return null;
 
-  if (secondsPart === undefined || secondsPart === "") return null;
+  const [minutesPart, secondsPart] = parts;
+  if (minutesPart === "" || secondsPart === "") return null;
+  if (!/^\d+$/.test(minutesPart) || !/^\d+$/.test(secondsPart)) return null;
+
+  let minutes = parseInt(minutesPart, 10);
   let seconds = parseInt(secondsPart, 10);
   if (Number.isNaN(minutes) || Number.isNaN(seconds)) return null;
 
-  // Carry seconds overflow into minutes
+  // Carry seconds overflow into minutes so values like 2:75 still normalize cleanly.
   minutes += Math.floor(seconds / 60);
   seconds = seconds % 60;
 
@@ -371,7 +376,7 @@ function renderLapTable() {
     input.autocomplete = "off";
     input.spellcheck = false;
     input.enterKeyHint = "next";
-    input.placeholder = "mm:ss";
+    input.placeholder = "ss / m:ss / mm:ss";
     input.className = "manual-time-input";
     input.value = manualLapValues[i] || "";
     input.dataset.index = String(i);
@@ -493,10 +498,15 @@ function readManualLapTimes(showErrors) {
     const sec = parseTimeFlexibleToSeconds(raw);
     if (sec === null) {
       if (showErrors) {
-        lapErrorDiv.textContent = `Manual entry error on lap ${i + 1}: please enter a time like :37, 1:40, 02:15.`;
+        lapErrorDiv.textContent = `Manual entry error on lap ${i + 1}: please enter a time as ss, m:ss, or mm:ss.`;
       }
       return null;
     }
+
+    // Normalize accepted entries to mm:ss so the table stays consistent.
+    const normalized = formatTimeMMSS(sec);
+    inputs[i].value = normalized;
+    manualLapValues[i] = normalized;
 
     // Strictly increasing cumulative times
     if (secs.length > 0 && sec <= secs[secs.length - 1]) {
@@ -600,13 +610,9 @@ function positionToOffsetWithinLap(posM, direction) {
   if (dir === "out") {
     return posM;
   } else if (dir === "back") {
-    // On the return leg, the subject is somewhere between 25 m (turnaround)
-    // and 0 m (back at the start line). We convert that to a 25..50 m offset
-    // within the 50 m lap.
-    //
-    // IMPORTANT: (back, 0) should map to 50 m (end of lap), not 0 m.
-    // Treating it as 0 causes the classic "tiny minute then huge minute"
-    // artifact when the minute mark occurs right at the start line.
+    // Treat 0 as the start line regardless of direction.
+    // Without this, (back, 0) would become 50 m and double-count a full lap.
+    if (posM === 0) return 0;
     return LAP_LENGTH_M - posM;
   }
   throw new Error('direction must be "out" or "back"');
