@@ -376,7 +376,7 @@ function renderLapTable() {
     input.autocomplete = "off";
     input.spellcheck = false;
     input.enterKeyHint = "next";
-    input.placeholder = "ss / m:ss / mm:ss";
+    input.placeholder = "mm:ss";
     input.className = "manual-time-input";
     input.value = manualLapValues[i] || "";
     input.dataset.index = String(i);
