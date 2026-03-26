@@ -710,7 +710,25 @@ function calculate() {
     const minute = info.minute;
 
     const tSec = minute * 60;
-    const lapsCompleted = getLapsCompletedByTime(sortedLapTimes, tSec);
+    let lapsCompleted = getLapsCompletedByTime(sortedLapTimes, tSec);
+
+    // Boundary correction:
+    // If the sticky note shows the subject exactly at the start line and heading back out,
+    // they have effectively completed the previous lap at that minute.
+    // Stopwatch lap taps can land a fraction of a second after the minute mark, which would
+    // otherwise shift that completed lap into the following minute.
+    if (
+      info.posM === 0 &&
+      info.dir === "out" &&
+      lapsCompleted < sortedLapTimes.length
+    ) {
+      const nextLapTime = sortedLapTimes[lapsCompleted];
+      const boundaryToleranceS = 1.0;
+      if (nextLapTime - tSec <= boundaryToleranceS) {
+        lapsCompleted += 1;
+      }
+    }
+
     const distFullLaps = lapsCompleted * LAP_LENGTH_M;
 
     const offset = positionToOffsetWithinLap(info.posM, info.dir);
